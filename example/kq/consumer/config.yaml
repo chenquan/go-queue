@@ -1,0 +1,14 @@
+Name: kq
+Brokers:
+- 127.0.0.1:19092
+- 127.0.0.1:19092
+- 127.0.0.1:19092
+Group: adhoc
+Topic: kq
+Offset: first
+Consumers: 1
+Telemetry:
+  Name: kq
+  Endpoint: http://localhost:14268/api/traces
+  Sampler: 1.0
+  Natcher: jaeger
