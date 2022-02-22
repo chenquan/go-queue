@@ -1,8 +1,8 @@
-package dq
+package beanstalkd
 
 import (
 	"context"
-	"github.com/chenquan/go-queue"
+	"github.com/chenquan/go-queue/queue"
 	"github.com/zeromicro/go-zero/core/hash"
 	"github.com/zeromicro/go-zero/core/service"
 	"strconv"
@@ -115,7 +115,7 @@ type innerConsumeHandler struct {
 	handle ConsumeHandle
 }
 
-func (ch innerConsumeHandler) Consume(ctx context.Context, k, v []byte) error {
+func (ch innerConsumeHandler) Consume(ctx context.Context, _, v []byte) error {
 	ch.handle(ctx, v)
 	return nil
 }

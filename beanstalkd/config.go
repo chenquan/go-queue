@@ -1,4 +1,4 @@
-package dq
+package beanstalkd
 
 import (
 	"github.com/zeromicro/go-zero/core/service"

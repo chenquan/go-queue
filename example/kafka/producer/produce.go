@@ -4,12 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/chenquan/go-queue/kafka"
 	"log"
 	"math/rand"
 	"strconv"
 	"time"
 
-	"github.com/chenquan/go-queue/kq"
 	"github.com/zeromicro/go-zero/core/cmdline"
 )
 
@@ -20,7 +20,7 @@ type message struct {
 }
 
 func main() {
-	pusher := kq.NewPusher([]string{
+	pusher := kafka.NewPusher([]string{
 		"127.0.0.1:19092",
 		"127.0.0.1:19092",
 		"127.0.0.1:19092",

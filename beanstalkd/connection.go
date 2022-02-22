@@ -1,4 +1,4 @@
-package dq
+package beanstalkd
 
 import (
 	"sync"
@@ -59,7 +59,7 @@ func (c *connection) reset() {
 	defer c.lock.Unlock()
 
 	if c.conn != nil {
-		c.conn.Close()
+		_ = c.conn.Close()
 		c.conn = nil
 	}
 }

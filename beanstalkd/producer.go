@@ -1,9 +1,9 @@
-package dq
+package beanstalkd
 
 import (
 	"bytes"
 	"context"
-	"github.com/chenquan/go-queue"
+	"github.com/chenquan/go-queue/queue"
 	"log"
 	"math/rand"
 	"strconv"

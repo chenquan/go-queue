@@ -1,9 +1,9 @@
-package kq
+package kafka
 
 import (
 	"context"
-	"github.com/chenquan/go-queue"
 	"github.com/chenquan/go-queue/internal/xtrace"
+	"github.com/chenquan/go-queue/queue"
 	"go.opentelemetry.io/otel/trace"
 	"io"
 	"log"

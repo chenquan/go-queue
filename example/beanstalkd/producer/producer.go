@@ -3,14 +3,13 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/chenquan/go-queue/beanstalkd"
 	"strconv"
 	"time"
-
-	"github.com/chenquan/go-queue/dq"
 )
 
 func main() {
-	producer := dq.NewProducer([]dq.Beanstalk{
+	producer := beanstalkd.NewProducer([]beanstalkd.Beanstalk{
 		{
 			Endpoint: "localhost:11300",
 			Tube:     "tube",

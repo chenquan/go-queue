@@ -1,11 +1,11 @@
-package dq
+package beanstalkd
 
 import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/chenquan/go-queue"
 	"github.com/chenquan/go-queue/internal/xtrace"
+	"github.com/chenquan/go-queue/queue"
 	"github.com/zeromicro/go-zero/core/logx"
 	"go.opentelemetry.io/otel/trace"
 	"strconv"

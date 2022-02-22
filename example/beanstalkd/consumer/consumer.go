@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"github.com/chenquan/go-queue/dq"
+	"github.com/chenquan/go-queue/beanstalkd"
 	"github.com/zeromicro/go-zero/core/conf"
 	"github.com/zeromicro/go-zero/core/logx"
 	"github.com/zeromicro/go-zero/core/service"
@@ -13,9 +13,9 @@ func main() {
 	var c service.ServiceConf
 	conf.MustLoad("config.yaml", &c)
 
-	consumer := dq.NewConsumer(dq.Conf{
+	consumer := beanstalkd.NewConsumer(beanstalkd.Conf{
 		ServiceConf: c,
-		Beanstalks: []dq.Beanstalk{
+		Beanstalks: []beanstalkd.Beanstalk{
 			{
 				Endpoint: "localhost:11300",
 				Tube:     "tube",
@@ -29,7 +29,7 @@ func main() {
 			Host: "localhost:6379",
 			Type: redis.NodeType,
 		},
-	}, dq.WithHandle(func(ctx context.Context, body []byte) {
+	}, beanstalkd.WithHandle(func(ctx context.Context, body []byte) {
 		logx.WithContext(ctx).Info(string(body))
 
 	}))

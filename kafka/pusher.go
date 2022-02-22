@@ -1,4 +1,4 @@
-package kq
+package kafka
 
 import (
 	"context"
