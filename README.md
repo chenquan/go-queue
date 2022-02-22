@@ -1,6 +1,6 @@
 # go-queue
 
-> Kafka, Beanstalkd Pub/Sub framework. Reference: https://github.com/zeromicro/go-queue
+> Kafka, Beanstalkd, Pulsar Pub/Sub framework. Reference: https://github.com/zeromicro/go-queue
 
 ## beanstalkd
 
@@ -96,15 +96,21 @@ Kafka Pub/Sub framework
 config.json
 
 ```yaml
-Name: kq
+Name: kafka
 Brokers:
   - 127.0.0.1:19092
   - 127.0.0.1:19092
   - 127.0.0.1:19092
-Group: adhoc
-Topic: kq
+Group: kafka
+Topic: kafka
 Offset: first
 Consumers: 1
+
+Telemetry:
+  Name: kq
+  Endpoint: http://localhost:14268/api/traces
+  Sampler: 1.0
+  Natcher: jaeger
 ```
 
 example code
@@ -194,22 +200,28 @@ func main() {
 
 ```
 
-## pq
+## pulsar
 
 Pulsar Pub/Sub framework
 
 ### consumer example
 
-config.json
+config.yaml
 
 ```yaml
-Name: pq
+Name: pulsar
 Brokers:
   - 127.0.0.1:6650
-Topic: pq
+Topic: pulsar
 Conns: 2
 Processors: 2
-SubscriptionName: pq
+SubscriptionName: pulsar
+
+Telemetry:
+  Name: pulsar
+  Endpoint: http://localhost:14268/api/traces
+  Sampler: 1.0
+  Natcher: jaeger
 ```
 
 consumer code
