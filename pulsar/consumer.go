@@ -1,18 +1,14 @@
-package kafka
+package pulsar
 
 import (
 	"context"
-	"github.com/chenquan/go-queue/internal/xtrace"
+	"github.com/apache/pulsar-client-go/pulsar"
 	"github.com/chenquan/go-queue/queue"
 	"go.opentelemetry.io/otel/trace"
-	"io"
 	"log"
+	"strings"
 	"time"
 
-	"github.com/segmentio/kafka-go"
-	_ "github.com/segmentio/kafka-go/gzip"
-	_ "github.com/segmentio/kafka-go/lz4"
-	_ "github.com/segmentio/kafka-go/snappy"
 	"github.com/zeromicro/go-zero/core/logx"
 	"github.com/zeromicro/go-zero/core/service"
 	"github.com/zeromicro/go-zero/core/stat"
@@ -38,20 +34,20 @@ type (
 
 	QueueOption func(*queueOptions)
 
-	kafkaQueue struct {
+	pulsarQueue struct {
 		c                Conf
-		consumer         *kafka.Reader
+		consumer         pulsar.Consumer
 		handler          queue.Consumer
-		channel          chan kafka.Message
-		producerRoutines *threading.RoutineGroup
+		channel          chan pulsar.ConsumerMessage
 		consumerRoutines *threading.RoutineGroup
 		metrics          *stat.Metrics
 		tracer           trace.Tracer
 	}
 
 	Queues struct {
-		queues []*kafkaQueue
+		queues []*pulsarQueue
 		group  *service.ServiceGroup
+		client pulsar.Client
 	}
 )
 
@@ -76,61 +72,65 @@ func NewQueue(c Conf, handler queue.Consumer, opts ...QueueOption) (*Queues, err
 	if c.Conns < 1 {
 		c.Conns = 1
 	}
+	// create a client
+	url := strings.Join(c.Brokers, ",")
+	client, err := pulsar.NewClient(pulsar.ClientOptions{
+		URL:               "pulsar://" + url,
+		ConnectionTimeout: 5 * time.Second,
+		OperationTimeout:  5 * time.Second,
+	})
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	q := &Queues{
-		group: service.NewServiceGroup(),
+		group:  service.NewServiceGroup(),
+		client: client,
 	}
 	for i := 0; i < c.Conns; i++ {
-		q.queues = append(q.queues, newKafkaQueue(c, handler, options))
+		q.queues = append(q.queues, newPulsarQueue(c, client, handler, options))
 	}
 
 	return q, nil
 }
 
-func newKafkaQueue(c Conf, handler queue.Consumer, options queueOptions) *kafkaQueue {
-	var offset int64
-	if c.Offset == firstOffset {
-		offset = kafka.FirstOffset
-	} else {
-		offset = kafka.LastOffset
-	}
-	consumer := kafka.NewReader(kafka.ReaderConfig{
-		Brokers:        c.Brokers,
-		GroupID:        c.Group,
-		Topic:          c.Topic,
-		StartOffset:    offset,
-		MinBytes:       c.MinBytes, // 10KB
-		MaxBytes:       c.MaxBytes, // 10MB
-		MaxWait:        options.maxWait,
-		CommitInterval: options.commitInterval,
-		QueueCapacity:  options.queueCapacity,
+func newPulsarQueue(c Conf, client pulsar.Client, handler queue.Consumer, options queueOptions) *pulsarQueue {
+	//use client create more consumers, one consumer has one channel message
+	channel := make(chan pulsar.ConsumerMessage, options.queueCapacity)
+	consumer, err := client.Subscribe(pulsar.ConsumerOptions{
+		Topic:            c.Topic,
+		Type:             pulsar.Shared,
+		SubscriptionName: c.SubscriptionName,
+		MessageChannel:   channel,
 	})
 
-	return &kafkaQueue{
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return &pulsarQueue{
 		c:                c,
 		consumer:         consumer,
 		handler:          handler,
-		channel:          make(chan kafka.Message),
-		producerRoutines: threading.NewRoutineGroup(),
+		channel:          channel,
 		consumerRoutines: threading.NewRoutineGroup(),
 		metrics:          options.metrics,
-		tracer:           xtrace.Tracer(),
 	}
 }
 
-func (q *kafkaQueue) Start() {
+func (q *pulsarQueue) Start() {
 	q.startConsumers()
-	q.startProducers()
-
-	q.producerRoutines.Wait()
-	close(q.channel)
 	q.consumerRoutines.Wait()
 }
 
-func (q *kafkaQueue) Stop() {
-	_ = q.consumer.Close()
+func (q *pulsarQueue) Stop() {
+	_ = q.consumer.Unsubscribe()
+	close(q.channel)
+	q.consumer.Close()
 }
 
-func (q *kafkaQueue) consumeOne(ctx context.Context, key, val []byte) error {
+func (q *pulsarQueue) consumeOne(ctx context.Context, key, val []byte) error {
 	startTime := timex.Now()
 	err := q.handler.Consume(ctx, key, val)
 	q.metrics.Add(stat.Task{
@@ -139,7 +139,7 @@ func (q *kafkaQueue) consumeOne(ctx context.Context, key, val []byte) error {
 	return err
 }
 
-func (q *kafkaQueue) startConsumers() {
+func (q *pulsarQueue) startConsumers() {
 
 	for i := 0; i < q.c.Processors; i++ {
 		q.consumerRoutines.Run(func() {
@@ -150,39 +150,13 @@ func (q *kafkaQueue) startConsumers() {
 	}
 }
 
-func (q *kafkaQueue) consume(m kafka.Message) {
+func (q *pulsarQueue) consume(m pulsar.ConsumerMessage) {
 	ctx, span := q.tracer.Start(context.Background(), "consumer")
 	defer span.End()
-
-	if err := q.consumeOne(ctx, m.Key, m.Value); err != nil {
-		logx.WithContext(ctx).Errorf("Error on consuming: %s, error: %v", string(m.Value), err)
+	if err := q.consumeOne(ctx, []byte(m.Key()), m.Payload()); err != nil {
+		logx.WithContext(ctx).Errorf("Error on consuming: %s, error: %v", string(m.Payload()), err)
 	}
-
-	err := q.consumer.CommitMessages(ctx, m)
-	if err != nil {
-		logx.WithContext(ctx).Error(err)
-	}
-}
-
-func (q *kafkaQueue) startProducers() {
-	for i := 0; i < q.c.Consumers; i++ {
-		q.producerRoutines.Run(func() {
-			for {
-				msg, err := q.consumer.FetchMessage(context.Background())
-				// io.EOF means consumer closed
-				// io.ErrClosedPipe means committing messages on the consumer,
-				// kafka will refire the messages on uncommitted messages, ignore
-				if err == io.EOF || err == io.ErrClosedPipe {
-					return
-				}
-				if err != nil {
-					logx.Errorf("Error on reading message, %q", err.Error())
-					continue
-				}
-				q.channel <- msg
-			}
-		})
-	}
+	q.consumer.Ack(m)
 }
 
 func (q Queues) Start() {
@@ -194,7 +168,9 @@ func (q Queues) Start() {
 
 func (q Queues) Stop() {
 	q.group.Stop()
+	q.client.Close()
 	_ = logx.Close()
+
 }
 
 func WithCommitInterval(interval time.Duration) QueueOption {

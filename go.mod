@@ -3,6 +3,7 @@ module github.com/chenquan/go-queue
 go 1.15
 
 require (
+	github.com/apache/pulsar-client-go v0.8.0
 	github.com/beanstalkd/go-beanstalk v0.1.0
 	github.com/frankban/quicktest v1.14.0 // indirect
 	github.com/klauspost/compress v1.14.2 // indirect
