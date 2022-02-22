@@ -1,14 +1,13 @@
-package kafka
+package pulsar
 
 import (
 	"context"
+	"github.com/apache/pulsar-client-go/pulsar"
 	"github.com/chenquan/go-queue/internal/xtrace"
-	"github.com/segmentio/kafka-go/compress"
 	"go.opentelemetry.io/otel/trace"
+	"strings"
 	"time"
 
-	"github.com/segmentio/kafka-go"
-	"github.com/segmentio/kafka-go/snappy"
 	"github.com/zeromicro/go-zero/core/executors"
 	"github.com/zeromicro/go-zero/core/logx"
 )
@@ -18,7 +17,7 @@ type (
 
 	Pusher struct {
 		tracer   trace.Tracer
-		producer *kafka.Writer
+		producer pulsar.Producer
 		topic    string
 		executor *executors.ChunkExecutor
 	}
@@ -31,11 +30,25 @@ type (
 
 func NewPusher(addrs []string, topic string, opts ...PushOption) *Pusher {
 	tracer := xtrace.Tracer()
-	producer := &kafka.Writer{
-		Addr:        kafka.TCP(addrs...),
-		Topic:       topic,
-		Balancer:    &kafka.LeastBytes{},
-		Compression: compress.Compression(snappy.NewCompressionCodecFraming(snappy.Framed).Code()),
+
+	url := strings.Join(addrs, ",")
+	client, err := pulsar.NewClient(pulsar.ClientOptions{
+		URL:               "pulsar://" + url,
+		ConnectionTimeout: 5 * time.Second,
+		OperationTimeout:  5 * time.Second,
+	})
+	client.Close()
+
+	if err != nil {
+		logx.Errorf("could not instantiate Pulsar client: %v", err)
+	}
+
+	producer, err := client.CreateProducer(pulsar.ProducerOptions{
+		Topic: topic,
+	})
+
+	if err != nil {
+		logx.Error(err)
 	}
 
 	pusher := &Pusher{
@@ -45,20 +58,20 @@ func NewPusher(addrs []string, topic string, opts ...PushOption) *Pusher {
 	}
 
 	pusher.executor = executors.NewChunkExecutor(func(tasks []interface{}) {
-		chunk := make([]kafka.Message, len(tasks))
 		for i := range tasks {
-			chunk[i] = tasks[i].(kafka.Message)
+			if _, err := pusher.producer.Send(context.Background(), tasks[i].(*pulsar.ProducerMessage)); err != nil {
+				logx.Error(err)
+			}
 		}
-		if err := pusher.producer.WriteMessages(context.Background(), chunk...); err != nil {
-			logx.Error(err)
-		}
+
 	}, newOptions(opts)...)
 
 	return pusher
 }
 
 func (p *Pusher) Close() error {
-	return p.producer.Close()
+	p.producer.Close()
+	return nil
 }
 
 func (p *Pusher) Name() string {
@@ -66,14 +79,16 @@ func (p *Pusher) Name() string {
 }
 
 func (p *Pusher) Push(ctx context.Context, k, v []byte) error {
-	msg := kafka.Message{
-		Key:   k,
-		Value: v,
+	msg := &pulsar.ProducerMessage{
+		Key:     string(k),
+		Payload: v,
 	}
+
 	if p.executor != nil {
 		return p.executor.Add(msg, len(v))
 	} else {
-		return p.producer.WriteMessages(ctx, msg)
+		_, err := p.producer.Send(ctx, msg)
+		return err
 	}
 }
 

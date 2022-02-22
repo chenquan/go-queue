@@ -15,6 +15,6 @@ type DelayPusher interface {
 
 type Pusher interface {
 	io.Closer
-	Push(ctx context.Context, body []byte) error
+	Push(ctx context.Context, key, body []byte) error
 	Name() string
 }

@@ -2,7 +2,7 @@
 
 > Kafka, Beanstalkd Pub/Sub framework. Reference: https://github.com/zeromicro/go-queue
 
-## dq
+## beanstalkd
 
 High available beanstalkd.
 
@@ -87,7 +87,7 @@ func main() {
 
 ```
 
-## kq
+## kafka
 
 Kafka Pub/Sub framework
 
