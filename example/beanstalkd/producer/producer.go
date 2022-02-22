@@ -15,12 +15,16 @@ func main() {
 			Tube:     "tube",
 		},
 		{
-			Endpoint: "localhost:11300",
+			Endpoint: "127.0.0.1:11300",
 			Tube:     "tube",
 		},
 	})
 	for i := 1000; i < 1005; i++ {
-		_, err := producer.Delay(context.Background(), []byte(strconv.Itoa(i)), time.Second*5)
+		//_, err := producer.Delay(context.Background(), []byte(strconv.Itoa(i)), time.Second*5)
+		//if err != nil {
+		//	fmt.Println(err)
+		//}
+		_, err := producer.Push(context.Background(), nil, []byte(strconv.Itoa(i)), beanstalkd.WithDuration(time.Second*5))
 		if err != nil {
 			fmt.Println(err)
 		}

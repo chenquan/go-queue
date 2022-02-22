@@ -1,6 +1,10 @@
 package beanstalkd
 
-import "time"
+import (
+	"context"
+	"io"
+	"time"
+)
 
 const (
 	PriHigh   = 1
@@ -13,3 +17,10 @@ const (
 	idSep   = ","
 	timeSep = '/'
 )
+
+type DelayPusher interface {
+	io.Closer
+	At(ctx context.Context, body []byte, at time.Time) (string, error)
+	Delay(ctx context.Context, body []byte, delay time.Duration) (string, error)
+	Revoke(ctx context.Context, ids string) error
+}

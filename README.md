@@ -193,3 +193,108 @@ func main() {
 
 
 ```
+
+## pq
+
+Pulsar Pub/Sub framework
+
+### consumer example
+
+config.json
+
+```yaml
+Name: pq
+Brokers:
+  - 127.0.0.1:6650
+Topic: pq
+Conns: 2
+Processors: 2
+SubscriptionName: pq
+```
+
+consumer code
+
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	"github.com/chenquan/go-queue/pulsar"
+	"github.com/chenquan/go-queue/queue"
+	"github.com/zeromicro/go-zero/core/logx"
+
+	"github.com/zeromicro/go-zero/core/conf"
+)
+
+func main() {
+	var c pulsar.Conf
+	conf.MustLoad("config.yaml", &c)
+
+	q := pulsar.MustNewQueue(c, queue.WithHandle(func(ctx context.Context, k, v []byte) error {
+		logx.WithContext(ctx).Info(fmt.Sprintf("=> %s\n", v))
+		return nil
+	}))
+	defer q.Stop()
+	q.Start()
+}
+
+```
+
+producer code
+
+```go
+package main
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"github.com/chenquan/go-queue/pulsar"
+	"log"
+	"math/rand"
+	"strconv"
+	"time"
+
+	"github.com/zeromicro/go-zero/core/cmdline"
+)
+
+type message struct {
+	Key     string `json:"key"`
+	Value   string `json:"value"`
+	Payload string `json:"message"`
+}
+
+func main() {
+	pusher := pulsar.NewPusher([]string{
+		"127.0.0.1:19092",
+		"127.0.0.1:19092",
+		"127.0.0.1:19092",
+	}, "kq")
+
+	ticker := time.NewTicker(time.Millisecond)
+	for round := 0; round < 3; round++ {
+		<-ticker.C
+
+		count := rand.Intn(100)
+		m := message{
+			Key:     strconv.FormatInt(time.Now().UnixNano(), 10),
+			Value:   fmt.Sprintf("%d,%d", round, count),
+			Payload: fmt.Sprintf("%d,%d", round, count),
+		}
+		body, err := json.Marshal(m)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		fmt.Println(string(body))
+
+		if _, err := pusher.Push(context.Background(), []byte(strconv.FormatInt(time.Now().UnixNano(), 10)), body); err != nil {
+			log.Fatal(err)
+		}
+	}
+
+	cmdline.EnterToContinue()
+}
+
+```

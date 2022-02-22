@@ -2,19 +2,16 @@ package queue
 
 import (
 	"context"
+	"errors"
 	"io"
-	"time"
 )
 
-type DelayPusher interface {
-	io.Closer
-	At(ctx context.Context, body []byte, at time.Time) (string, error)
-	Delay(ctx context.Context, body []byte, delay time.Duration) (string, error)
-	Revoke(ctx context.Context, ids string) error
-}
+var ErrNotSupport = errors.New("not support")
+
+type CallOptions func(interface{})
 
 type Pusher interface {
 	io.Closer
-	Push(ctx context.Context, key, body []byte) error
+	Push(ctx context.Context, key, body []byte, opts ...CallOptions) (interface{}, error)
 	Name() string
 }

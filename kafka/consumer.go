@@ -27,8 +27,6 @@ const (
 )
 
 type (
-	ConsumeHandle func(ctx context.Context, key, value []byte) error
-
 	queueOptions struct {
 		commitInterval time.Duration
 		queueCapacity  int
@@ -209,12 +207,6 @@ func WithQueueCapacity(queueCapacity int) QueueOption {
 	}
 }
 
-func WithHandle(handle ConsumeHandle) queue.Consumer {
-	return innerConsumeHandler{
-		handle: handle,
-	}
-}
-
 func WithMaxWait(wait time.Duration) QueueOption {
 	return func(options *queueOptions) {
 		options.maxWait = wait
@@ -225,14 +217,6 @@ func WithMetrics(metrics *stat.Metrics) QueueOption {
 	return func(options *queueOptions) {
 		options.metrics = metrics
 	}
-}
-
-type innerConsumeHandler struct {
-	handle ConsumeHandle
-}
-
-func (ch innerConsumeHandler) Consume(ctx context.Context, k, v []byte) error {
-	return ch.handle(ctx, k, v)
 }
 
 func ensureQueueOptions(c Conf, options *queueOptions) {

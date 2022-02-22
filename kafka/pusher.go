@@ -3,6 +3,7 @@ package kafka
 import (
 	"context"
 	"github.com/chenquan/go-queue/internal/xtrace"
+	"github.com/chenquan/go-queue/queue"
 	"github.com/segmentio/kafka-go/compress"
 	"go.opentelemetry.io/otel/trace"
 	"time"
@@ -65,7 +66,7 @@ func (p *Pusher) Name() string {
 	return p.topic
 }
 
-func (p *Pusher) Push(ctx context.Context, k, v []byte) error {
+func (p *Pusher) Push(ctx context.Context, k, v []byte, _ ...queue.CallOptions) error {
 	msg := kafka.Message{
 		Key:   k,
 		Value: v,

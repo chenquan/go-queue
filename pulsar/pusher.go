@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/apache/pulsar-client-go/pulsar"
 	"github.com/chenquan/go-queue/internal/xtrace"
+	"github.com/chenquan/go-queue/queue"
 	"go.opentelemetry.io/otel/trace"
 	"strings"
 	"time"
@@ -20,6 +21,51 @@ type (
 		producer pulsar.Producer
 		topic    string
 		executor *executors.ChunkExecutor
+	}
+
+	Message struct {
+		// Payload for the message
+		Payload []byte
+
+		// Value and payload is mutually exclusive, `Value interface{}` for schema message.
+		Value interface{}
+
+		// Key sets the key of the message for routing policy
+		Key string
+
+		// OrderingKey sets the ordering key of the message
+		OrderingKey string
+
+		// Properties attach application defined properties on the message
+		Properties map[string]string
+
+		// EventTime set the event time for a given message
+		// By default, messages don't have an event time associated, while the publish
+		// time will be be always present.
+		// Set the event time to a non-zero timestamp to explicitly declare the time
+		// that the event "happened", as opposed to when the message is being published.
+		EventTime time.Time
+
+		// ReplicationClusters override the replication clusters for this message.
+		ReplicationClusters []string
+
+		// DisableReplication disables the replication for this message
+		DisableReplication bool
+
+		// SequenceID sets the sequence id to assign to the current message
+		SequenceID *int64
+
+		// DeliverAfter requests to deliver the message only after the specified relative delay.
+		// Note: messages are only delivered with delay when a consumer is consuming
+		//     through a `SubscriptionType=Shared` subscription. With other subscription
+		//     types, the messages will still be delivered immediately.
+		DeliverAfter time.Duration
+
+		// DeliverAt delivers the message only at or after the specified absolute timestamp.
+		// Note: messages are only delivered with delay when a consumer is consuming
+		//     through a `SubscriptionType=Shared` subscription. With other subscription
+		//     types, the messages will still be delivered immediately.
+		DeliverAt time.Time
 	}
 
 	chunkOptions struct {
@@ -78,17 +124,32 @@ func (p *Pusher) Name() string {
 	return p.topic
 }
 
-func (p *Pusher) Push(ctx context.Context, k, v []byte) error {
+func (p *Pusher) Push(ctx context.Context, k, v []byte, opts ...queue.CallOptions) (interface{}, error) {
+	op := new(Message)
+
+	for _, opt := range opts {
+		opt(op)
+	}
+
 	msg := &pulsar.ProducerMessage{
-		Key:     string(k),
-		Payload: v,
+		Payload:             v,
+		Value:               op.Value,
+		Key:                 string(k),
+		OrderingKey:         op.OrderingKey,
+		Properties:          op.Properties,
+		EventTime:           op.EventTime,
+		ReplicationClusters: op.ReplicationClusters,
+		DisableReplication:  op.DisableReplication,
+		SequenceID:          op.SequenceID,
+		DeliverAfter:        op.DeliverAfter,
+		DeliverAt:           op.DeliverAt,
 	}
 
 	if p.executor != nil {
-		return p.executor.Add(msg, len(v))
+		return nil, p.executor.Add(msg, len(v))
 	} else {
-		_, err := p.producer.Send(ctx, msg)
-		return err
+		id, err := p.producer.Send(ctx, msg)
+		return id, err
 	}
 }
 
@@ -120,4 +181,48 @@ func newOptions(opts []PushOption) []executors.ChunkOption {
 	}
 
 	return chunkOpts
+}
+
+func WithMessage(message Message) queue.CallOptions {
+	return func(i interface{}) {
+		m, ok := i.(*Message)
+		if !ok {
+			panic(queue.ErrNotSupport)
+		}
+		*m = message
+
+	}
+}
+
+func WithDeliverAt(deliverAt time.Time) queue.CallOptions {
+	return func(i interface{}) {
+		m, ok := i.(*Message)
+		if !ok {
+			panic(queue.ErrNotSupport)
+		}
+		m.DeliverAt = deliverAt
+
+	}
+}
+
+func WithDeliverAfter(deliverAfter time.Duration) queue.CallOptions {
+	return func(i interface{}) {
+		m, ok := i.(*Message)
+		if !ok {
+			panic(queue.ErrNotSupport)
+		}
+		m.DeliverAfter = deliverAfter
+
+	}
+}
+
+func WithOrderingKey(OrderingKey string) queue.CallOptions {
+	return func(i interface{}) {
+
+		m, ok := i.(*Message)
+		if !ok {
+			panic(queue.ErrNotSupport)
+		}
+		m.OrderingKey = OrderingKey
+	}
 }

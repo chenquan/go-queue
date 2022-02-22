@@ -22,21 +22,42 @@ const (
 )
 
 type (
-	producerCluster struct {
-		nodes []queue.DelayPusher
+	ProducerCluster struct {
+		nodes []DelayPusher
+	}
+
+	callOptions struct {
+		at time.Time
 	}
 )
+
+func (p *ProducerCluster) Push(ctx context.Context, _, body []byte, opts ...queue.CallOptions) (interface{}, error) {
+	if len(opts) == 0 {
+		panic("expiration time must be set")
+	}
+
+	op := new(callOptions)
+	for _, opt := range opts {
+		opt(op)
+	}
+
+	return p.At(ctx, body, op.at)
+}
+
+func (p *ProducerCluster) Name() string {
+	return "beanstalkd"
+}
 
 func init() {
 	rand.Seed(time.Now().UnixNano())
 }
 
-func NewProducer(beanstalks []Beanstalk) queue.DelayPusher {
+func NewProducer(beanstalks []Beanstalk) *ProducerCluster {
 	if len(beanstalks) < minWrittenNodes {
 		log.Fatalf("nodes must be equal or greater than %d", minWrittenNodes)
 	}
 
-	var nodes []queue.DelayPusher
+	var nodes []DelayPusher
 	producers := make(map[string]lang.PlaceholderType)
 	for _, node := range beanstalks {
 		if _, ok := producers[node.Endpoint]; ok {
@@ -47,17 +68,17 @@ func NewProducer(beanstalks []Beanstalk) queue.DelayPusher {
 		nodes = append(nodes, NewProducerNode(node.Endpoint, node.Tube))
 	}
 
-	return &producerCluster{nodes: nodes}
+	return &ProducerCluster{nodes: nodes}
 }
 
-func (p *producerCluster) At(ctx context.Context, body []byte, at time.Time) (string, error) {
+func (p *ProducerCluster) At(ctx context.Context, body []byte, at time.Time) (string, error) {
 	wrapped := p.wrap(body, at)
-	return p.insert(ctx, func(node queue.DelayPusher) (string, error) {
+	return p.insert(ctx, func(node DelayPusher) (string, error) {
 		return node.At(ctx, wrapped, at)
 	})
 }
 
-func (p *producerCluster) Close() error {
+func (p *ProducerCluster) Close() error {
 	var be errorx.BatchError
 	for _, node := range p.nodes {
 		if err := node.Close(); err != nil {
@@ -67,14 +88,14 @@ func (p *producerCluster) Close() error {
 	return be.Err()
 }
 
-func (p *producerCluster) Delay(ctx context.Context, body []byte, delay time.Duration) (string, error) {
+func (p *ProducerCluster) Delay(ctx context.Context, body []byte, delay time.Duration) (string, error) {
 	wrapped := p.wrap(body, time.Now().Add(delay))
-	return p.insert(ctx, func(node queue.DelayPusher) (string, error) {
+	return p.insert(ctx, func(node DelayPusher) (string, error) {
 		return node.Delay(ctx, wrapped, delay)
 	})
 }
 
-func (p *producerCluster) Revoke(ctx context.Context, ids string) error {
+func (p *ProducerCluster) Revoke(ctx context.Context, ids string) error {
 	var be errorx.BatchError
 
 	fx.From(func(source chan<- interface{}) {
@@ -82,7 +103,7 @@ func (p *producerCluster) Revoke(ctx context.Context, ids string) error {
 			source <- node
 		}
 	}).Map(func(item interface{}) interface{} {
-		node := item.(queue.DelayPusher)
+		node := item.(DelayPusher)
 		return node.Revoke(ctx, ids)
 	}).ForEach(func(item interface{}) {
 		if item != nil {
@@ -93,11 +114,11 @@ func (p *producerCluster) Revoke(ctx context.Context, ids string) error {
 	return be.Err()
 }
 
-func (p *producerCluster) cloneNodes() []queue.DelayPusher {
-	return append([]queue.DelayPusher(nil), p.nodes...)
+func (p *ProducerCluster) cloneNodes() []DelayPusher {
+	return append([]DelayPusher(nil), p.nodes...)
 }
 
-func (p *producerCluster) getWriteNodes() []queue.DelayPusher {
+func (p *ProducerCluster) getWriteNodes() []DelayPusher {
 	if len(p.nodes) <= replicaNodes {
 		return p.nodes
 	}
@@ -109,7 +130,7 @@ func (p *producerCluster) getWriteNodes() []queue.DelayPusher {
 	return nodes[:replicaNodes]
 }
 
-func (p *producerCluster) insert(ctx context.Context, fn func(node queue.DelayPusher) (string, error)) (string, error) {
+func (p *ProducerCluster) insert(ctx context.Context, fn func(node DelayPusher) (string, error)) (string, error) {
 	type idErr struct {
 		id  string
 		err error
@@ -120,7 +141,7 @@ func (p *producerCluster) insert(ctx context.Context, fn func(node queue.DelayPu
 			source <- node
 		}
 	}).Map(func(item interface{}) interface{} {
-		node := item.(queue.DelayPusher)
+		node := item.(DelayPusher)
 		id, err := fn(node)
 		return idErr{
 			id:  id,
@@ -152,10 +173,31 @@ func (p *producerCluster) insert(ctx context.Context, fn func(node queue.DelayPu
 	return "", be.Err()
 }
 
-func (p *producerCluster) wrap(body []byte, at time.Time) []byte {
+func (p *ProducerCluster) wrap(body []byte, at time.Time) []byte {
 	var builder bytes.Buffer
 	builder.WriteString(strconv.FormatInt(at.UnixNano(), 10))
 	builder.WriteByte(timeSep)
 	builder.Write(body)
 	return builder.Bytes()
+}
+
+func WithAt(at time.Time) queue.CallOptions {
+	return func(i interface{}) {
+		options, ok := i.(*callOptions)
+		if !ok {
+			panic(queue.ErrNotSupport)
+		}
+		options.at = at
+
+	}
+}
+
+func WithDuration(duration time.Duration) queue.CallOptions {
+	return func(i interface{}) {
+		options, ok := i.(*callOptions)
+		if !ok {
+			panic(queue.ErrNotSupport)
+		}
+		options.at = time.Now().Add(duration)
+	}
 }

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/chenquan/go-queue/internal/xtrace"
-	"github.com/chenquan/go-queue/queue"
 	"github.com/zeromicro/go-zero/core/logx"
 	"go.opentelemetry.io/otel/trace"
 	"strconv"
@@ -28,7 +27,7 @@ func (p *producerNode) Name() string {
 	return p.tube
 }
 
-func NewProducerNode(endpoint, tube string) queue.DelayPusher {
+func NewProducerNode(endpoint, tube string) *producerNode {
 	return &producerNode{
 		tracer:   xtrace.Tracer(),
 		endpoint: endpoint,
