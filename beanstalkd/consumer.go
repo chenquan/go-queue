@@ -5,6 +5,7 @@ import (
 	"github.com/chenquan/go-queue/queue"
 	"github.com/zeromicro/go-zero/core/hash"
 	"github.com/zeromicro/go-zero/core/service"
+	"github.com/zeromicro/go-zero/core/stat"
 	"strconv"
 	"time"
 
@@ -23,23 +24,32 @@ var maxCheckBytes = getMaxTimeLen()
 type (
 	ConsumeHandle func(ctx context.Context, body []byte)
 
-	ConsumerOption func(*ConsumerCluster)
+	ConsumerOption func(*queueOptions)
 
 	ConsumerCluster struct {
 		nodes  []*consumerNode
 		red    *redis.Redis
 		group  *service.ServiceGroup
 		handle queue.Consumer
+		metric *stat.Metrics
+	}
+	queueOptions struct {
+		metrics *stat.Metrics
 	}
 )
 
-func NewConsumer(c Conf, handle queue.Consumer, opt ...ConsumerOption) *ConsumerCluster {
-
-	c.MustSetUp()
-
+func NewConsumer(c Conf, handle queue.Consumer, opts ...ConsumerOption) *ConsumerCluster {
 	var nodes []*consumerNode
 	for _, node := range c.Beanstalks {
 		nodes = append(nodes, newConsumerNode(node.Endpoint, node.Tube))
+	}
+
+	op := new(queueOptions)
+	for _, opt := range opts {
+		opt(op)
+	}
+	if op.metrics == nil {
+		op.metrics = stat.NewMetrics("beanstalkd-consumer")
 	}
 
 	return &ConsumerCluster{
@@ -47,6 +57,7 @@ func NewConsumer(c Conf, handle queue.Consumer, opt ...ConsumerOption) *Consumer
 		nodes:  nodes,
 		red:    c.Redis.NewRedis(),
 		handle: handle,
+		metric: op.metrics,
 	}
 }
 
@@ -59,6 +70,11 @@ func (c ConsumerCluster) Start() {
 			logx.WithContext(ctx).Errorf("discarded: %q", string(body))
 			return
 		}
+
+		startTime := time.Now()
+		defer c.metric.Add(stat.Task{
+			Duration: time.Since(startTime),
+		})
 
 		ok, err := c.red.SetnxEx(key, guardValue, expiration)
 		if err != nil {
@@ -123,5 +139,11 @@ func (ch innerConsumeHandler) Consume(ctx context.Context, _, v []byte) error {
 func WithHandle(handle ConsumeHandle) queue.Consumer {
 	return innerConsumeHandler{
 		handle: handle,
+	}
+}
+
+func WithMetrics(metrics *stat.Metrics) ConsumerOption {
+	return func(options *queueOptions) {
+		options.metrics = metrics
 	}
 }

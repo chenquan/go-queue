@@ -19,7 +19,7 @@ func main() {
 			Tube:     "tube",
 		},
 	})
-	for i := 1000; i < 1005; i++ {
+	for i := 1; i < 1005; i++ {
 		//_, err := producer.Delay(context.Background(), []byte(strconv.Itoa(i)), time.Second*5)
 		//if err != nil {
 		//	fmt.Println(err)

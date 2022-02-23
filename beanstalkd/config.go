@@ -1,7 +1,6 @@
 package beanstalkd
 
 import (
-	"github.com/zeromicro/go-zero/core/service"
 	"github.com/zeromicro/go-zero/core/stores/redis"
 )
 
@@ -12,7 +11,6 @@ type (
 	}
 
 	Conf struct {
-		service.ServiceConf
 		Beanstalks []Beanstalk
 		Redis      redis.RedisConf
 	}

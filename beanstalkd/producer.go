@@ -31,23 +31,6 @@ type (
 	}
 )
 
-func (p *ProducerCluster) Push(ctx context.Context, _, body []byte, opts ...queue.CallOptions) (interface{}, error) {
-	if len(opts) == 0 {
-		panic("expiration time must be set")
-	}
-
-	op := new(callOptions)
-	for _, opt := range opts {
-		opt(op)
-	}
-
-	return p.At(ctx, body, op.at)
-}
-
-func (p *ProducerCluster) Name() string {
-	return "beanstalkd"
-}
-
 func init() {
 	rand.Seed(time.Now().UnixNano())
 }
@@ -68,7 +51,26 @@ func NewProducer(beanstalks []Beanstalk) *ProducerCluster {
 		nodes = append(nodes, NewProducerNode(node.Endpoint, node.Tube))
 	}
 
-	return &ProducerCluster{nodes: nodes}
+	return &ProducerCluster{
+		nodes: nodes,
+	}
+}
+
+func (p *ProducerCluster) Push(ctx context.Context, _, body []byte, opts ...queue.CallOptions) (interface{}, error) {
+	if len(opts) == 0 {
+		panic("expiration time must be set")
+	}
+
+	op := new(callOptions)
+	for _, opt := range opts {
+		opt(op)
+	}
+
+	return p.At(ctx, body, op.at)
+}
+
+func (p *ProducerCluster) Name() string {
+	return "beanstalkd"
 }
 
 func (p *ProducerCluster) At(ctx context.Context, body []byte, at time.Time) (string, error) {

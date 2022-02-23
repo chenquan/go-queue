@@ -13,8 +13,9 @@ func main() {
 	var c service.ServiceConf
 	conf.MustLoad("config.yaml", &c)
 
+	c.MustSetUp()
+
 	consumer := beanstalkd.NewConsumer(beanstalkd.Conf{
-		ServiceConf: c,
 		Beanstalks: []beanstalkd.Beanstalk{
 			{
 				Endpoint: "localhost:11300",
