@@ -23,6 +23,7 @@ const (
 
 type (
 	ProducerCluster struct {
+		tube  string
 		nodes []DelayPusher
 	}
 
@@ -31,24 +32,22 @@ type (
 	}
 )
 
-func init() {
-	rand.Seed(time.Now().UnixNano())
-}
+var r = rand.New(rand.NewSource(time.Now().UnixNano()))
 
-func NewProducer(beanstalks []Beanstalk) *ProducerCluster {
-	if len(beanstalks) < minWrittenNodes {
+func NewProducer(beanstalk Beanstalkd) *ProducerCluster {
+	if len(beanstalk.Endpoints) < minWrittenNodes {
 		log.Fatalf("nodes must be equal or greater than %d", minWrittenNodes)
 	}
 
 	var nodes []DelayPusher
 	producers := make(map[string]lang.PlaceholderType)
-	for _, node := range beanstalks {
-		if _, ok := producers[node.Endpoint]; ok {
+	for _, endpoint := range beanstalk.Endpoints {
+		if _, ok := producers[endpoint]; ok {
 			log.Fatal("all node endpoints must be different")
 		}
 
-		producers[node.Endpoint] = lang.Placeholder
-		nodes = append(nodes, NewProducerNode(node.Endpoint, node.Tube))
+		producers[endpoint] = lang.Placeholder
+		nodes = append(nodes, NewProducerNode(endpoint, beanstalk.Tube))
 	}
 
 	return &ProducerCluster{
@@ -70,7 +69,7 @@ func (p *ProducerCluster) Push(ctx context.Context, _, body []byte, opts ...queu
 }
 
 func (p *ProducerCluster) Name() string {
-	return "beanstalkd"
+	return p.tube
 }
 
 func (p *ProducerCluster) At(ctx context.Context, body []byte, at time.Time) (string, error) {
@@ -126,7 +125,7 @@ func (p *ProducerCluster) getWriteNodes() []DelayPusher {
 	}
 
 	nodes := p.cloneNodes()
-	rand.Shuffle(len(nodes), func(i, j int) {
+	r.Shuffle(len(nodes), func(i, j int) {
 		nodes[i], nodes[j] = nodes[j], nodes[i]
 	})
 	return nodes[:replicaNodes]

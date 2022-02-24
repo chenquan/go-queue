@@ -9,16 +9,16 @@ import (
 )
 
 func main() {
-	producer := beanstalkd.NewProducer([]beanstalkd.Beanstalk{
-		{
-			Endpoint: "localhost:11300",
-			Tube:     "tube",
+	producer := beanstalkd.NewProducer(
+		beanstalkd.Beanstalkd{
+			Tube: "tube",
+			Endpoints: []string{
+				"localhost:11300",
+				"127.0.0.1:11300",
+			},
 		},
-		{
-			Endpoint: "127.0.0.1:11300",
-			Tube:     "tube",
-		},
-	})
+	)
+
 	for i := 1; i < 1005; i++ {
 		//_, err := producer.Delay(context.Background(), []byte(strconv.Itoa(i)), time.Second*5)
 		//if err != nil {

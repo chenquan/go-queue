@@ -27,15 +27,12 @@ func main() {
 	c.MustSetUp()
 
 	consumer := beanstalkd.NewConsumer(beanstalkd.Conf{
-		Beanstalks: []beanstalkd.Beanstalk{
-			{
-				Endpoint: "localhost:11300",
-				Tube:     "tube",
+		Beanstalkd: beanstalkd.Beanstalkd{
+			Endpoints: []string{
+				"localhost:11300",
+				"localhost:11300",
 			},
-			{
-				Endpoint: "localhost:11300",
-				Tube:     "tube",
-			},
+			Tube: "tube",
 		},
 		Redis: redis.RedisConf{
 			Host: "localhost:6379",
@@ -47,9 +44,7 @@ func main() {
 	}))
 	defer consumer.Stop()
 	consumer.Start()
-
 }
-
 ```
 
 ### producer example
@@ -66,25 +61,27 @@ import (
 )
 
 func main() {
-	producer := beanstalkd.NewProducer([]beanstalkd.Beanstalk{
-		{
-			Endpoint: "localhost:11300",
-			Tube:     "tube",
+	producer := beanstalkd.NewProducer(
+		beanstalkd.Beanstalkd{
+			Tube: "tube",
+			Endpoints: []string{
+				"localhost:11300",
+				"127.0.0.1:11300",
+			},
 		},
-		{
-			Endpoint: "localhost:11300",
-			Tube:     "tube",
-		},
-	})
-	for i := 1000; i < 1005; i++ {
-		_, err := producer.Delay(context.Background(), []byte(strconv.Itoa(i)), time.Second*5)
+	)
+
+	for i := 1; i < 1005; i++ {
+		//_, err := producer.Delay(context.Background(), []byte(strconv.Itoa(i)), time.Second*5)
+		//if err != nil {
+		//	fmt.Println(err)
+		//}
+		_, err := producer.Push(context.Background(), nil, []byte(strconv.Itoa(i)), beanstalkd.WithDuration(time.Second*5))
 		if err != nil {
 			fmt.Println(err)
 		}
 	}
 }
-
-
 ```
 
 ## kafka
