@@ -10,7 +10,7 @@ import (
 )
 
 func TestBeanstalkd(t *testing.T) {
-	ctx, cancelFunc := context.WithCancel(context.Background())
+	ctx, cancelFunc := context.WithTimeout(context.Background(), time.Second*20)
 	c := make(chan struct{})
 
 	go startConsumer(ctx, c)
