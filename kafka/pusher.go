@@ -66,15 +66,15 @@ func (p *Pusher) Name() string {
 	return p.topic
 }
 
-func (p *Pusher) Push(ctx context.Context, k, v []byte, _ ...queue.CallOptions) error {
+func (p *Pusher) Push(ctx context.Context, k, v []byte, _ ...queue.CallOptions) (interface{}, error) {
 	msg := kafka.Message{
 		Key:   k,
 		Value: v,
 	}
 	if p.executor != nil {
-		return p.executor.Add(msg, len(v))
+		return nil, p.executor.Add(msg, len(v))
 	} else {
-		return p.producer.WriteMessages(ctx, msg)
+		return nil, p.producer.WriteMessages(ctx, msg)
 	}
 }
 
