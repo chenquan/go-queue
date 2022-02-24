@@ -135,15 +135,3 @@ func (ch innerConsumeHandler) Consume(ctx context.Context, _, v []byte) error {
 	ch.handle(ctx, v)
 	return nil
 }
-
-func WithHandle(handle ConsumeHandle) queue.Consumer {
-	return innerConsumeHandler{
-		handle: handle,
-	}
-}
-
-func WithMetrics(metrics *stat.Metrics) ConsumerOption {
-	return func(options *queueOptions) {
-		options.metrics = metrics
-	}
-}

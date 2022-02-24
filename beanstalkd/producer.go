@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"github.com/chenquan/go-queue/queue"
+	"io"
 	"log"
 	"math/rand"
 	"strconv"
@@ -22,6 +23,13 @@ const (
 )
 
 type (
+	DelayPusher interface {
+		io.Closer
+		At(ctx context.Context, body []byte, at time.Time) (string, error)
+		Delay(ctx context.Context, body []byte, delay time.Duration) (string, error)
+		Revoke(ctx context.Context, ids string) error
+	}
+
 	ProducerCluster struct {
 		tube  string
 		nodes []DelayPusher
@@ -180,25 +188,4 @@ func (p *ProducerCluster) wrap(body []byte, at time.Time) []byte {
 	builder.WriteByte(timeSep)
 	builder.Write(body)
 	return builder.Bytes()
-}
-
-func WithAt(at time.Time) queue.CallOptions {
-	return func(i interface{}) {
-		options, ok := i.(*callOptions)
-		if !ok {
-			panic(queue.ErrNotSupport)
-		}
-		options.at = at
-
-	}
-}
-
-func WithDuration(duration time.Duration) queue.CallOptions {
-	return func(i interface{}) {
-		options, ok := i.(*callOptions)
-		if !ok {
-			panic(queue.ErrNotSupport)
-		}
-		options.at = time.Now().Add(duration)
-	}
 }
