@@ -36,6 +36,10 @@ jobs:
           KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
         ports:
           - "9092:9092"
+      beanstalkd:
+        image: schickling/beanstalkd
+        ports:
+          - 11300:11300
     steps:
       - name: Set up Go 1.x
         uses: actions/setup-go@v2

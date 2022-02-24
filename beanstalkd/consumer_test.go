@@ -3,6 +3,7 @@ package beanstalkd
 import (
 	"context"
 	"fmt"
+	"github.com/stretchr/testify/assert"
 	"github.com/zeromicro/go-zero/core/stores/redis"
 	"strconv"
 	"testing"
@@ -10,17 +11,29 @@ import (
 )
 
 func TestBeanstalkd(t *testing.T) {
-	ctx, cancelFunc := context.WithTimeout(context.Background(), time.Second*20)
+	ctx, _ := context.WithTimeout(context.Background(), time.Second*20)
 	c := make(chan struct{})
 
 	go startConsumer(ctx, c)
 	startProducer()
+	i := 0
 
-	for i := 1; i < 10; i++ {
-		<-c
+	for {
+		select {
+		case <-ctx.Done():
+			assert.EqualValues(t, 9, i)
+			return
+		case <-c:
+			i++
+			if i == 9 {
+				assert.EqualValues(t, 9, i)
+				return
+			}
+		}
+
 	}
-
-	cancelFunc()
+	//fmt.Println("结束")
+	//cancelFunc()
 }
 
 func startConsumer(ctx context.Context, c chan struct{}) {
