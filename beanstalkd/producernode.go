@@ -23,10 +23,6 @@ type producerNode struct {
 	conn     *connection
 }
 
-func (p *producerNode) Name() string {
-	return p.tube
-}
-
 func NewProducerNode(endpoint, tube string) *producerNode {
 	return &producerNode{
 		tracer:   xtrace.Tracer(),

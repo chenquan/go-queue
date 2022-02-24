@@ -5,13 +5,13 @@ import (
 )
 
 type (
-	Beanstalk struct {
-		Endpoint string
-		Tube     string
+	Conf struct {
+		Beanstalkd
+		Redis redis.RedisConf
 	}
 
-	Conf struct {
-		Beanstalks []Beanstalk
-		Redis      redis.RedisConf
+	Beanstalkd struct {
+		Endpoints []string
+		Tube      string
 	}
 )

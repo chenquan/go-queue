@@ -16,15 +16,12 @@ func main() {
 	c.MustSetUp()
 
 	consumer := beanstalkd.NewConsumer(beanstalkd.Conf{
-		Beanstalks: []beanstalkd.Beanstalk{
-			{
-				Endpoint: "localhost:11300",
-				Tube:     "tube",
+		Beanstalkd: beanstalkd.Beanstalkd{
+			Endpoints: []string{
+				"localhost:11300",
+				"localhost:11300",
 			},
-			{
-				Endpoint: "localhost:11300",
-				Tube:     "tube",
-			},
+			Tube: "tube",
 		},
 		Redis: redis.RedisConf{
 			Host: "localhost:6379",

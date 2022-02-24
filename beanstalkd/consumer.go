@@ -40,8 +40,8 @@ type (
 
 func NewConsumer(c Conf, handle queue.Consumer, opts ...ConsumerOption) *ConsumerCluster {
 	var nodes []*consumerNode
-	for _, node := range c.Beanstalks {
-		nodes = append(nodes, newConsumerNode(node.Endpoint, node.Tube))
+	for _, endpoint := range c.Endpoints {
+		nodes = append(nodes, newConsumerNode(endpoint, c.Tube))
 	}
 
 	op := new(queueOptions)
