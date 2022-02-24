@@ -24,7 +24,7 @@ func main() {
 		"127.0.0.1:19092",
 		"127.0.0.1:19092",
 		"127.0.0.1:19092",
-	}, "kq")
+	}, "kafka")
 
 	ticker := time.NewTicker(time.Millisecond)
 	for round := 0; round < 3; round++ {
