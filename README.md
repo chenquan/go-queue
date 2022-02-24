@@ -8,6 +8,18 @@ High available beanstalkd.
 
 ### consumer example
 
+config.yaml
+
+```yaml
+Name: beanstalkd
+Telemetry:
+  Name: beanstalkd
+  Endpoint: http://localhost:14268/api/traces
+  Sampler: 1.0
+  Natcher: jaeger
+```
+
+
 ```go
 package main
 
@@ -44,7 +56,9 @@ func main() {
 	}))
 	defer consumer.Stop()
 	consumer.Start()
+
 }
+
 ```
 
 ### producer example
@@ -90,7 +104,7 @@ Kafka Pub/Sub framework
 
 ### consumer example
 
-config.json
+config.yaml
 
 ```yaml
 Name: kafka
@@ -119,6 +133,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/chenquan/go-queue/kafka"
+	"github.com/chenquan/go-queue/queue"
 	"github.com/zeromicro/go-zero/core/logx"
 
 	"github.com/zeromicro/go-zero/core/conf"
@@ -128,15 +143,13 @@ func main() {
 	var c kafka.Conf
 	conf.MustLoad("config.yaml", &c)
 
-	q := kafka.MustNewQueue(c, kafka.WithHandle(func(ctx context.Context, k, v []byte) error {
+	q := kafka.MustNewQueue(c, queue.WithHandle(func(ctx context.Context, k, v []byte) error {
 		logx.WithContext(ctx).Info(fmt.Sprintf("=> %s\n", v))
 		return nil
 	}))
 	defer q.Stop()
 	q.Start()
 }
-
-
 ```
 
 ### producer example
@@ -168,7 +181,7 @@ func main() {
 		"127.0.0.1:19092",
 		"127.0.0.1:19092",
 		"127.0.0.1:19092",
-	}, "kq")
+	}, "kafka")
 
 	ticker := time.NewTicker(time.Millisecond)
 	for round := 0; round < 3; round++ {
@@ -186,14 +199,13 @@ func main() {
 		}
 
 		fmt.Println(string(body))
-		if err := pusher.Push(context.Background(), body); err != nil {
+		if err := pusher.Push(context.Background(), []byte(strconv.FormatInt(time.Now().UnixNano(), 10)), body); err != nil {
 			log.Fatal(err)
 		}
 	}
 
 	cmdline.EnterToContinue()
 }
-
 
 ```
 
@@ -279,7 +291,7 @@ func main() {
 		"127.0.0.1:19092",
 		"127.0.0.1:19092",
 		"127.0.0.1:19092",
-	}, "kq")
+	}, "pulsar")
 
 	ticker := time.NewTicker(time.Millisecond)
 	for round := 0; round < 3; round++ {

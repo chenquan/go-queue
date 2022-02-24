@@ -1,6 +1,6 @@
-Name: kq
+Name: beanstalkd
 Telemetry:
-  Name: dq
+  Name: beanstalkd
   Endpoint: http://localhost:14268/api/traces
   Sampler: 1.0
   Natcher: jaeger
