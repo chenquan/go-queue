@@ -186,7 +186,7 @@ func main() {
 		}
 
 		fmt.Println(string(body))
-		if _, err := pusher.Push(context.Background(), body); err != nil {
+		if _, err := pusher.Push(context.Background(), []byte(strconv.FormatInt(time.Now().UnixNano(), 10)), body); err != nil {
 			log.Fatal(err)
 		}
 	}
