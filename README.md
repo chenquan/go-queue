@@ -8,6 +8,18 @@ High available beanstalkd.
 
 ### consumer example
 
+config.yaml
+
+```yaml
+Name: beanstalkd
+Telemetry:
+  Name: beanstalkd
+  Endpoint: http://localhost:14268/api/traces
+  Sampler: 1.0
+  Natcher: jaeger
+```
+
+
 ```go
 package main
 
@@ -90,7 +102,7 @@ Kafka Pub/Sub framework
 
 ### consumer example
 
-config.json
+config.yaml
 
 ```yaml
 Name: kafka
@@ -174,7 +186,7 @@ func main() {
 		"127.0.0.1:19092",
 		"127.0.0.1:19092",
 		"127.0.0.1:19092",
-	}, "kq")
+	}, "kafka")
 
 	ticker := time.NewTicker(time.Millisecond)
 	for round := 0; round < 3; round++ {
@@ -192,14 +204,13 @@ func main() {
 		}
 
 		fmt.Println(string(body))
-		if err := pusher.Push(context.Background(), body); err != nil {
+		if _, err := pusher.Push(context.Background(), []byte(strconv.FormatInt(time.Now().UnixNano(), 10)), body); err != nil {
 			log.Fatal(err)
 		}
 	}
 
 	cmdline.EnterToContinue()
 }
-
 
 ```
 
@@ -259,7 +270,6 @@ func main() {
 	q.Start()
 }
 
-
 ```
 
 producer code
@@ -291,7 +301,7 @@ func main() {
 		"127.0.0.1:19092",
 		"127.0.0.1:19092",
 		"127.0.0.1:19092",
-	}, "kq")
+	}, "pulsar")
 
 	ticker := time.NewTicker(time.Millisecond)
 	for round := 0; round < 3; round++ {
