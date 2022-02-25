@@ -1,14 +1,11 @@
 package kafka
 
-import "github.com/zeromicro/go-zero/core/service"
-
 const (
 	firstOffset = "first"
 	lastOffset  = "last"
 )
 
 type Conf struct {
-	service.ServiceConf
 	Brokers    []string
 	Group      string
 	Topic      string

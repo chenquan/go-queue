@@ -1,9 +1,6 @@
 package pulsar
 
-import "github.com/zeromicro/go-zero/core/service"
-
 type Conf struct {
-	service.ServiceConf
 	Brokers          []string
 	Topic            string
 	SubscriptionName string

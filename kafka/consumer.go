@@ -63,13 +63,12 @@ func MustNewQueue(c Conf, handler queue.Consumer, opts ...QueueOption) *Queues {
 }
 
 func NewQueue(c Conf, handler queue.Consumer, opts ...QueueOption) (*Queues, error) {
-	c.MustSetUp()
-
 	var options queueOptions
 	for _, opt := range opts {
 		opt(&options)
 	}
-	ensureQueueOptions(c, &options)
+
+	ensureQueueOptions(&options)
 
 	if c.Conns < 1 {
 		c.Conns = 1
@@ -219,7 +218,7 @@ func WithMetrics(metrics *stat.Metrics) QueueOption {
 	}
 }
 
-func ensureQueueOptions(c Conf, options *queueOptions) {
+func ensureQueueOptions(options *queueOptions) {
 	if options.commitInterval == 0 {
 		options.commitInterval = defaultCommitInterval
 	}
@@ -230,6 +229,6 @@ func ensureQueueOptions(c Conf, options *queueOptions) {
 		options.maxWait = defaultMaxWait
 	}
 	if options.metrics == nil {
-		options.metrics = stat.NewMetrics(c.Name)
+		options.metrics = stat.NewMetrics("kafka-consumer")
 	}
 }
