@@ -2,6 +2,7 @@ package pulsar
 
 import (
 	"context"
+	"fmt"
 	"github.com/apache/pulsar-client-go/pulsar"
 	"github.com/chenquan/go-queue/internal/xtrace"
 	"github.com/chenquan/go-queue/queue"
@@ -78,13 +79,12 @@ type (
 func NewPusher(addrs []string, topic string, opts ...PushOption) *Pusher {
 	tracer := xtrace.Tracer()
 
-	url := strings.Join(addrs, ",")
+	url := fmt.Sprintf("pulsar://%s", strings.Join(addrs, ","))
 	client, err := pulsar.NewClient(pulsar.ClientOptions{
-		URL:               "pulsar://" + url,
+		URL:               url,
 		ConnectionTimeout: 5 * time.Second,
 		OperationTimeout:  5 * time.Second,
 	})
-	client.Close()
 
 	if err != nil {
 		logx.Errorf("could not instantiate Pulsar client: %v", err)
