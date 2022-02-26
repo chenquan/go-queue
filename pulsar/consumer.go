@@ -2,6 +2,7 @@ package pulsar
 
 import (
 	"context"
+	"fmt"
 	"github.com/apache/pulsar-client-go/pulsar"
 	"github.com/chenquan/go-queue/queue"
 	"go.opentelemetry.io/otel/trace"
@@ -70,10 +71,11 @@ func NewQueue(c Conf, handler queue.Consumer, opts ...QueueOption) (*Queues, err
 	if c.Conns < 1 {
 		c.Conns = 1
 	}
+
 	// create a client
-	url := strings.Join(c.Brokers, ",")
+	url := fmt.Sprintf("pulsar://%s", strings.Join(c.Brokers, ","))
 	client, err := pulsar.NewClient(pulsar.ClientOptions{
-		URL:               "pulsar://" + url,
+		URL:               url,
 		ConnectionTimeout: 5 * time.Second,
 		OperationTimeout:  5 * time.Second,
 	})
