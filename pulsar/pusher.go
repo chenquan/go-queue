@@ -19,6 +19,7 @@ type (
 	Pusher struct {
 		tracer   trace.Tracer
 		producer pulsar.Producer
+		client   pulsar.Client
 		topic    string
 		executor *executors.ChunkExecutor
 	}
@@ -100,6 +101,7 @@ func NewPusher(addrs []string, topic string, opts ...PushOption) *Pusher {
 	pusher := &Pusher{
 		tracer:   tracer,
 		producer: producer,
+		client:   client,
 		topic:    topic,
 	}
 
@@ -117,6 +119,7 @@ func NewPusher(addrs []string, topic string, opts ...PushOption) *Pusher {
 
 func (p *Pusher) Close() error {
 	p.producer.Close()
+	p.client.Close()
 	return nil
 }
 
