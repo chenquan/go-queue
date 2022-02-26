@@ -25,6 +25,11 @@ type (
 		executor *executors.ChunkExecutor
 	}
 
+	callOptions struct {
+		isAsync bool
+		message *Message
+	}
+
 	Message struct {
 		// Payload for the message
 		Payload []byte
@@ -128,24 +133,25 @@ func (p *Pusher) Name() string {
 }
 
 func (p *Pusher) Push(ctx context.Context, k, v []byte, opts ...queue.CallOptions) (interface{}, error) {
-	op := new(Message)
 
+	op := new(callOptions)
+	op.message = new(Message)
 	for _, opt := range opts {
 		opt(op)
 	}
 
 	msg := &pulsar.ProducerMessage{
 		Payload:             v,
-		Value:               op.Value,
+		Value:               op.message.Value,
 		Key:                 string(k),
-		OrderingKey:         op.OrderingKey,
-		Properties:          op.Properties,
-		EventTime:           op.EventTime,
-		ReplicationClusters: op.ReplicationClusters,
-		DisableReplication:  op.DisableReplication,
-		SequenceID:          op.SequenceID,
-		DeliverAfter:        op.DeliverAfter,
-		DeliverAt:           op.DeliverAt,
+		OrderingKey:         op.message.OrderingKey,
+		Properties:          op.message.Properties,
+		EventTime:           op.message.EventTime,
+		ReplicationClusters: op.message.ReplicationClusters,
+		DisableReplication:  op.message.DisableReplication,
+		SequenceID:          op.message.SequenceID,
+		DeliverAfter:        op.message.DeliverAfter,
+		DeliverAt:           op.message.DeliverAt,
 	}
 
 	if p.executor != nil {
@@ -188,44 +194,52 @@ func newOptions(opts []PushOption) []executors.ChunkOption {
 
 func WithMessage(message Message) queue.CallOptions {
 	return func(i interface{}) {
-		m, ok := i.(*Message)
+		m, ok := i.(*callOptions)
 		if !ok {
 			panic(queue.ErrNotSupport)
 		}
-		*m = message
-
+		*m.message = message
 	}
 }
 
 func WithDeliverAt(deliverAt time.Time) queue.CallOptions {
 	return func(i interface{}) {
-		m, ok := i.(*Message)
+		m, ok := i.(*callOptions)
 		if !ok {
 			panic(queue.ErrNotSupport)
 		}
-		m.DeliverAt = deliverAt
-
+		m.message.DeliverAt = deliverAt
 	}
 }
 
 func WithDeliverAfter(deliverAfter time.Duration) queue.CallOptions {
 	return func(i interface{}) {
-		m, ok := i.(*Message)
+		m, ok := i.(*callOptions)
 		if !ok {
 			panic(queue.ErrNotSupport)
 		}
-		m.DeliverAfter = deliverAfter
-
+		m.message.DeliverAfter = deliverAfter
 	}
 }
 
 func WithOrderingKey(OrderingKey string) queue.CallOptions {
 	return func(i interface{}) {
 
-		m, ok := i.(*Message)
+		m, ok := i.(*callOptions)
 		if !ok {
 			panic(queue.ErrNotSupport)
 		}
-		m.OrderingKey = OrderingKey
+		m.message.OrderingKey = OrderingKey
+	}
+}
+
+func WithAsync() queue.CallOptions {
+	return func(i interface{}) {
+		options, ok := i.(*callOptions)
+		if !ok {
+			panic(queue.ErrNotSupport)
+		}
+
+		options.isAsync = true
 	}
 }
