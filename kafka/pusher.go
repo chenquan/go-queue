@@ -4,12 +4,10 @@ import (
 	"context"
 	"github.com/chenquan/go-queue/internal/xtrace"
 	"github.com/chenquan/go-queue/queue"
-	"github.com/segmentio/kafka-go/compress"
 	"go.opentelemetry.io/otel/trace"
 	"time"
 
 	"github.com/segmentio/kafka-go"
-	"github.com/segmentio/kafka-go/snappy"
 	"github.com/zeromicro/go-zero/core/executors"
 	"github.com/zeromicro/go-zero/core/logx"
 )
@@ -36,7 +34,7 @@ func NewPusher(addrs []string, topic string, opts ...PushOption) *Pusher {
 		Addr:        kafka.TCP(addrs...),
 		Topic:       topic,
 		Balancer:    &kafka.LeastBytes{},
-		Compression: compress.Compression(snappy.NewCompressionCodecFraming(snappy.Framed).Code()),
+		Compression: kafka.Snappy,
 	}
 
 	pusher := &Pusher{
