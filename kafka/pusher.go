@@ -28,7 +28,7 @@ type (
 	}
 
 	callOptions struct {
-		isAsync bool
+		isSync bool
 	}
 )
 
@@ -79,10 +79,14 @@ func (p *Pusher) Push(ctx context.Context, k, v []byte, opts ...queue.CallOption
 		opt(c)
 	}
 
-	if p.executor != nil && c.isAsync {
-		return nil, p.executor.Add(msg, len(v))
-	} else {
+	if p.executor == nil {
+		c.isSync = true
+	}
+
+	if c.isSync {
 		return nil, p.producer.WriteMessages(ctx, msg)
+	} else {
+		return nil, p.executor.Add(msg, len(v))
 	}
 }
 
@@ -98,14 +102,14 @@ func WithFlushInterval(interval time.Duration) PushOption {
 	}
 }
 
-func WithAsync() queue.CallOptions {
+func WithSync() queue.CallOptions {
 	return func(i interface{}) {
 		options, ok := i.(*callOptions)
 		if !ok {
 			panic(queue.ErrNotSupport)
 		}
 
-		options.isAsync = true
+		options.isSync = true
 	}
 }
 

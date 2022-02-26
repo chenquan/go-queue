@@ -26,7 +26,7 @@ type (
 	}
 
 	callOptions struct {
-		isAsync bool
+		isSync  bool
 		message *Message
 	}
 
@@ -154,11 +154,16 @@ func (p *Pusher) Push(ctx context.Context, k, v []byte, opts ...queue.CallOption
 		DeliverAt:           op.message.DeliverAt,
 	}
 
-	if p.executor != nil {
-		return nil, p.executor.Add(msg, len(v))
-	} else {
+	if p.executor == nil {
+		op.isSync = true
+	}
+
+	if op.isSync {
 		id, err := p.producer.Send(ctx, msg)
 		return id, err
+	} else {
+		return nil, p.executor.Add(msg, len(v))
+
 	}
 }
 
@@ -233,13 +238,13 @@ func WithOrderingKey(OrderingKey string) queue.CallOptions {
 	}
 }
 
-func WithAsync() queue.CallOptions {
+func WithSync() queue.CallOptions {
 	return func(i interface{}) {
 		options, ok := i.(*callOptions)
 		if !ok {
 			panic(queue.ErrNotSupport)
 		}
 
-		options.isAsync = true
+		options.isSync = true
 	}
 }
