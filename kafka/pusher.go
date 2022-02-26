@@ -26,6 +26,10 @@ type (
 		chunkSize     int
 		flushInterval time.Duration
 	}
+
+	callOptions struct {
+		isSync bool
+	}
 )
 
 func NewPusher(addrs []string, topic string, opts ...PushOption) *Pusher {
@@ -64,15 +68,25 @@ func (p *Pusher) Name() string {
 	return p.topic
 }
 
-func (p *Pusher) Push(ctx context.Context, k, v []byte, _ ...queue.CallOptions) (interface{}, error) {
+func (p *Pusher) Push(ctx context.Context, k, v []byte, opts ...queue.CallOptions) (interface{}, error) {
 	msg := kafka.Message{
 		Key:   k,
 		Value: v,
 	}
-	if p.executor != nil {
-		return nil, p.executor.Add(msg, len(v))
-	} else {
+
+	c := new(callOptions)
+	for _, opt := range opts {
+		opt(c)
+	}
+
+	if p.executor == nil {
+		c.isSync = true
+	}
+
+	if c.isSync {
 		return nil, p.producer.WriteMessages(ctx, msg)
+	} else {
+		return nil, p.executor.Add(msg, len(v))
 	}
 }
 
@@ -85,6 +99,17 @@ func WithChunkSize(chunkSize int) PushOption {
 func WithFlushInterval(interval time.Duration) PushOption {
 	return func(options *chunkOptions) {
 		options.flushInterval = interval
+	}
+}
+
+func WithSync() queue.CallOptions {
+	return func(i interface{}) {
+		options, ok := i.(*callOptions)
+		if !ok {
+			panic(queue.ErrNotSupport)
+		}
+
+		options.isSync = true
 	}
 }
 
