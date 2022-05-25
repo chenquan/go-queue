@@ -3,12 +3,13 @@ package pulsar
 import (
 	"context"
 	"fmt"
-	"github.com/apache/pulsar-client-go/pulsar"
-	"github.com/chenquan/go-queue/queue"
-	"go.opentelemetry.io/otel/trace"
 	"log"
 	"strings"
 	"time"
+
+	"github.com/apache/pulsar-client-go/pulsar"
+	"github.com/chenquan/go-queue/queue"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/zeromicro/go-zero/core/logx"
 	"github.com/zeromicro/go-zero/core/service"
@@ -74,11 +75,13 @@ func NewQueue(c Conf, handler queue.Consumer, opts ...QueueOption) (*Queues, err
 
 	// create a client
 	url := fmt.Sprintf("pulsar://%s", strings.Join(c.Brokers, ","))
-	client, err := pulsar.NewClient(pulsar.ClientOptions{
-		URL:               url,
-		ConnectionTimeout: 5 * time.Second,
-		OperationTimeout:  5 * time.Second,
-	})
+	client, err := pulsar.NewClient(
+		pulsar.ClientOptions{
+			URL:               url,
+			ConnectionTimeout: 5 * time.Second,
+			OperationTimeout:  5 * time.Second,
+		},
+	)
 
 	if err != nil {
 		log.Fatal(err)
@@ -95,15 +98,18 @@ func NewQueue(c Conf, handler queue.Consumer, opts ...QueueOption) (*Queues, err
 	return q, nil
 }
 
-func newPulsarQueue(c Conf, client pulsar.Client, handler queue.Consumer, options queueOptions) *pulsarQueue {
-	//use client create more consumers, one consumer has one channel message
+func newPulsarQueue(
+	c Conf, client pulsar.Client, handler queue.Consumer, options queueOptions) *pulsarQueue {
+	// use client create more consumers, one consumer has one channel message
 	channel := make(chan pulsar.ConsumerMessage, options.queueCapacity)
-	consumer, err := client.Subscribe(pulsar.ConsumerOptions{
-		Topic:            c.Topic,
-		Type:             pulsar.Shared,
-		SubscriptionName: c.SubscriptionName,
-		MessageChannel:   channel,
-	})
+	consumer, err := client.Subscribe(
+		pulsar.ConsumerOptions{
+			Topic:            c.Topic,
+			Type:             pulsar.Shared,
+			SubscriptionName: c.SubscriptionName,
+			MessageChannel:   channel,
+		},
+	)
 
 	if err != nil {
 		log.Fatal(err)
@@ -133,20 +139,24 @@ func (q *pulsarQueue) Stop() {
 func (q *pulsarQueue) consumeOne(ctx context.Context, key, val []byte) error {
 	startTime := timex.Now()
 	err := q.handler.Consume(ctx, key, val)
-	q.metrics.Add(stat.Task{
-		Duration: timex.Since(startTime),
-	})
+	q.metrics.Add(
+		stat.Task{
+			Duration: timex.Since(startTime),
+		},
+	)
 	return err
 }
 
 func (q *pulsarQueue) startConsumers() {
 
 	for i := 0; i < q.c.Processors; i++ {
-		q.consumerRoutines.Run(func() {
-			for msg := range q.channel {
-				q.consume(msg)
-			}
-		})
+		q.consumerRoutines.Run(
+			func() {
+				for msg := range q.channel {
+					q.consume(msg)
+				}
+			},
+		)
 	}
 }
 

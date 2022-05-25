@@ -2,12 +2,13 @@ package beanstalkd
 
 import (
 	"context"
+	"strconv"
+	"time"
+
 	"github.com/chenquan/go-queue/queue"
 	"github.com/zeromicro/go-zero/core/hash"
 	"github.com/zeromicro/go-zero/core/service"
 	"github.com/zeromicro/go-zero/core/stat"
-	"strconv"
-	"time"
 
 	"github.com/zeromicro/go-zero/core/logx"
 	"github.com/zeromicro/go-zero/core/stores/redis"
@@ -72,9 +73,11 @@ func (c ConsumerCluster) Start() {
 		}
 
 		startTime := time.Now()
-		defer c.metric.Add(stat.Task{
-			Duration: time.Since(startTime),
-		})
+		defer c.metric.Add(
+			stat.Task{
+				Duration: time.Since(startTime),
+			},
+		)
 
 		ok, err := c.red.SetnxEx(key, guardValue, expiration)
 		if err != nil {
@@ -85,10 +88,12 @@ func (c ConsumerCluster) Start() {
 	}
 
 	for _, node := range c.nodes {
-		c.group.Add(consumeService{
-			c:       node,
-			consume: guardedConsume,
-		})
+		c.group.Add(
+			consumeService{
+				c:       node,
+				consume: guardedConsume,
+			},
+		)
 	}
 	c.group.Start()
 }

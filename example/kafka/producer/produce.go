@@ -4,11 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/chenquan/go-queue/kafka"
 	"log"
 	"math/rand"
 	"strconv"
 	"time"
+
+	"github.com/chenquan/go-queue/kafka"
 
 	"github.com/zeromicro/go-zero/core/cmdline"
 )
@@ -20,11 +21,13 @@ type message struct {
 }
 
 func main() {
-	pusher := kafka.NewPusher([]string{
-		"127.0.0.1:19092",
-		"127.0.0.1:19092",
-		"127.0.0.1:19092",
-	}, "kafka")
+	pusher := kafka.NewPusher(
+		[]string{
+			"127.0.0.1:19092",
+			"127.0.0.1:19092",
+			"127.0.0.1:19092",
+		}, "kafka",
+	)
 
 	ticker := time.NewTicker(time.Millisecond)
 	for round := 0; round < 3; round++ {
@@ -42,7 +45,9 @@ func main() {
 		}
 
 		fmt.Println(string(body))
-		if _, err := pusher.Push(context.Background(), []byte(strconv.FormatInt(time.Now().UnixNano(), 10)), body); err != nil {
+		if _, err := pusher.Push(
+			context.Background(), []byte(strconv.FormatInt(time.Now().UnixNano(), 10)), body,
+		); err != nil {
 			log.Fatal(err)
 		}
 	}
