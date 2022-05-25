@@ -2,12 +2,13 @@ package kafka
 
 import (
 	"context"
-	"github.com/chenquan/go-queue/internal/xtrace"
-	"github.com/chenquan/go-queue/queue"
-	"go.opentelemetry.io/otel/trace"
 	"io"
 	"log"
 	"time"
+
+	"github.com/chenquan/go-queue/internal/xtrace"
+	"github.com/chenquan/go-queue/queue"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/segmentio/kafka-go"
 	"github.com/zeromicro/go-zero/core/logx"
@@ -87,17 +88,19 @@ func newKafkaQueue(c Conf, handler queue.Consumer, options queueOptions) *kafkaQ
 	} else {
 		offset = kafka.LastOffset
 	}
-	consumer := kafka.NewReader(kafka.ReaderConfig{
-		Brokers:        c.Brokers,
-		GroupID:        c.Group,
-		Topic:          c.Topic,
-		StartOffset:    offset,
-		MinBytes:       c.MinBytes, // 10KB
-		MaxBytes:       c.MaxBytes, // 10MB
-		MaxWait:        options.maxWait,
-		CommitInterval: options.commitInterval,
-		QueueCapacity:  options.queueCapacity,
-	})
+	consumer := kafka.NewReader(
+		kafka.ReaderConfig{
+			Brokers:        c.Brokers,
+			GroupID:        c.Group,
+			Topic:          c.Topic,
+			StartOffset:    offset,
+			MinBytes:       c.MinBytes, // 10KB
+			MaxBytes:       c.MaxBytes, // 10MB
+			MaxWait:        options.maxWait,
+			CommitInterval: options.commitInterval,
+			QueueCapacity:  options.queueCapacity,
+		},
+	)
 
 	return &kafkaQueue{
 		c:                c,
@@ -127,20 +130,24 @@ func (q *kafkaQueue) Stop() {
 func (q *kafkaQueue) consumeOne(ctx context.Context, key, val []byte) error {
 	startTime := timex.Now()
 	err := q.handler.Consume(ctx, key, val)
-	q.metrics.Add(stat.Task{
-		Duration: timex.Since(startTime),
-	})
+	q.metrics.Add(
+		stat.Task{
+			Duration: timex.Since(startTime),
+		},
+	)
 	return err
 }
 
 func (q *kafkaQueue) startConsumers() {
 
 	for i := 0; i < q.c.Processors; i++ {
-		q.consumerRoutines.Run(func() {
-			for msg := range q.channel {
-				q.consume(msg)
-			}
-		})
+		q.consumerRoutines.Run(
+			func() {
+				for msg := range q.channel {
+					q.consume(msg)
+				}
+			},
+		)
 	}
 }
 
@@ -160,22 +167,24 @@ func (q *kafkaQueue) consume(m kafka.Message) {
 
 func (q *kafkaQueue) startProducers() {
 	for i := 0; i < q.c.Consumers; i++ {
-		q.producerRoutines.Run(func() {
-			for {
-				msg, err := q.consumer.FetchMessage(context.Background())
-				// io.EOF means consumer closed
-				// io.ErrClosedPipe means committing messages on the consumer,
-				// kafka will refire the messages on uncommitted messages, ignore
-				if err == io.EOF || err == io.ErrClosedPipe {
-					return
+		q.producerRoutines.Run(
+			func() {
+				for {
+					msg, err := q.consumer.FetchMessage(context.Background())
+					// io.EOF means consumer closed
+					// io.ErrClosedPipe means committing messages on the consumer,
+					// kafka will refire the messages on uncommitted messages, ignore
+					if err == io.EOF || err == io.ErrClosedPipe {
+						return
+					}
+					if err != nil {
+						logx.Errorf("Error on reading message, %q", err.Error())
+						continue
+					}
+					q.channel <- msg
 				}
-				if err != nil {
-					logx.Errorf("Error on reading message, %q", err.Error())
-					continue
-				}
-				q.channel <- msg
-			}
-		})
+			},
+		)
 	}
 }
 

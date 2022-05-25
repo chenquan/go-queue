@@ -2,8 +2,9 @@ package beanstalkd
 
 import (
 	"context"
-	"github.com/chenquan/go-queue/internal/xtrace"
 	"time"
+
+	"github.com/chenquan/go-queue/internal/xtrace"
 
 	"github.com/beanstalkd/go-beanstalk"
 	"github.com/zeromicro/go-zero/core/logx"

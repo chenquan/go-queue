@@ -3,12 +3,13 @@ package pulsar
 import (
 	"context"
 	"fmt"
+	"strings"
+	"time"
+
 	"github.com/apache/pulsar-client-go/pulsar"
 	"github.com/chenquan/go-queue/internal/xtrace"
 	"github.com/chenquan/go-queue/queue"
 	"go.opentelemetry.io/otel/trace"
-	"strings"
-	"time"
 
 	"github.com/zeromicro/go-zero/core/executors"
 	"github.com/zeromicro/go-zero/core/logx"
@@ -85,19 +86,23 @@ func NewPusher(addrs []string, topic string, opts ...PushOption) *Pusher {
 	tracer := xtrace.Tracer()
 
 	url := fmt.Sprintf("pulsar://%s", strings.Join(addrs, ","))
-	client, err := pulsar.NewClient(pulsar.ClientOptions{
-		URL:               url,
-		ConnectionTimeout: 5 * time.Second,
-		OperationTimeout:  5 * time.Second,
-	})
+	client, err := pulsar.NewClient(
+		pulsar.ClientOptions{
+			URL:               url,
+			ConnectionTimeout: 5 * time.Second,
+			OperationTimeout:  5 * time.Second,
+		},
+	)
 
 	if err != nil {
 		logx.Errorf("could not instantiate Pulsar client: %v", err)
 	}
 
-	producer, err := client.CreateProducer(pulsar.ProducerOptions{
-		Topic: topic,
-	})
+	producer, err := client.CreateProducer(
+		pulsar.ProducerOptions{
+			Topic: topic,
+		},
+	)
 
 	if err != nil {
 		logx.Error(err)
@@ -110,14 +115,18 @@ func NewPusher(addrs []string, topic string, opts ...PushOption) *Pusher {
 		topic:    topic,
 	}
 
-	pusher.executor = executors.NewChunkExecutor(func(tasks []interface{}) {
-		for i := range tasks {
-			if _, err := pusher.producer.Send(context.Background(), tasks[i].(*pulsar.ProducerMessage)); err != nil {
-				logx.Error(err)
+	pusher.executor = executors.NewChunkExecutor(
+		func(tasks []interface{}) {
+			for i := range tasks {
+				if _, err := pusher.producer.Send(
+					context.Background(), tasks[i].(*pulsar.ProducerMessage),
+				); err != nil {
+					logx.Error(err)
+				}
 			}
-		}
 
-	}, newOptions(opts)...)
+		}, newOptions(opts)...,
+	)
 
 	return pusher
 }
@@ -132,7 +141,8 @@ func (p *Pusher) Name() string {
 	return p.topic
 }
 
-func (p *Pusher) Push(ctx context.Context, k, v []byte, opts ...queue.CallOptions) (interface{}, error) {
+func (p *Pusher) Push(ctx context.Context, k, v []byte, opts ...queue.CallOptions) (
+	interface{}, error) {
 
 	op := new(callOptions)
 	op.message = new(Message)

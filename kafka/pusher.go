@@ -2,10 +2,11 @@ package kafka
 
 import (
 	"context"
+	"time"
+
 	"github.com/chenquan/go-queue/internal/xtrace"
 	"github.com/chenquan/go-queue/queue"
 	"go.opentelemetry.io/otel/trace"
-	"time"
 
 	"github.com/segmentio/kafka-go"
 	"github.com/zeromicro/go-zero/core/executors"
@@ -47,15 +48,17 @@ func NewPusher(addrs []string, topic string, opts ...PushOption) *Pusher {
 		topic:    topic,
 	}
 
-	pusher.executor = executors.NewChunkExecutor(func(tasks []interface{}) {
-		chunk := make([]kafka.Message, len(tasks))
-		for i := range tasks {
-			chunk[i] = tasks[i].(kafka.Message)
-		}
-		if err := pusher.producer.WriteMessages(context.Background(), chunk...); err != nil {
-			logx.Error(err)
-		}
-	}, newOptions(opts)...)
+	pusher.executor = executors.NewChunkExecutor(
+		func(tasks []interface{}) {
+			chunk := make([]kafka.Message, len(tasks))
+			for i := range tasks {
+				chunk[i] = tasks[i].(kafka.Message)
+			}
+			if err := pusher.producer.WriteMessages(context.Background(), chunk...); err != nil {
+				logx.Error(err)
+			}
+		}, newOptions(opts)...,
+	)
 
 	return pusher
 }
@@ -68,7 +71,8 @@ func (p *Pusher) Name() string {
 	return p.topic
 }
 
-func (p *Pusher) Push(ctx context.Context, k, v []byte, opts ...queue.CallOptions) (interface{}, error) {
+func (p *Pusher) Push(ctx context.Context, k, v []byte, opts ...queue.CallOptions) (
+	interface{}, error) {
 	msg := kafka.Message{
 		Key:   k,
 		Value: v,

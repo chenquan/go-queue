@@ -4,12 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/chenquan/go-queue/internal/xtrace"
-	"github.com/zeromicro/go-zero/core/logx"
-	"go.opentelemetry.io/otel/trace"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/chenquan/go-queue/internal/xtrace"
+	"github.com/zeromicro/go-zero/core/logx"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/beanstalkd/go-beanstalk"
 )
@@ -46,7 +47,8 @@ func (p *producerNode) Close() error {
 	return p.conn.Close()
 }
 
-func (p *producerNode) Delay(ctx context.Context, body []byte, delay time.Duration) (string, error) {
+func (p *producerNode) Delay(ctx context.Context, body []byte, delay time.Duration) (
+	string, error) {
 	ctx, span := p.tracer.Start(ctx, "delay")
 	defer span.End()
 
