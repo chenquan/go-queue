@@ -3,12 +3,13 @@ package beanstalkd
 import (
 	"bytes"
 	"context"
-	"github.com/chenquan/go-queue/queue"
 	"log"
 	"math/rand"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/chenquan/go-queue/queue"
 
 	"github.com/zeromicro/go-zero/core/errorx"
 	"github.com/zeromicro/go-zero/core/fx"
@@ -55,7 +56,8 @@ func NewProducer(beanstalk Beanstalkd) *ProducerCluster {
 	}
 }
 
-func (p *ProducerCluster) Push(ctx context.Context, _, body []byte, opts ...queue.CallOptions) (interface{}, error) {
+func (p *ProducerCluster) Push(
+	ctx context.Context, _, body []byte, opts ...queue.CallOptions) (interface{}, error) {
 	if len(opts) == 0 {
 		panic("expiration time must be set")
 	}
@@ -74,9 +76,11 @@ func (p *ProducerCluster) Name() string {
 
 func (p *ProducerCluster) At(ctx context.Context, body []byte, at time.Time) (string, error) {
 	wrapped := p.wrap(body, at)
-	return p.insert(ctx, func(node DelayPusher) (string, error) {
-		return node.At(ctx, wrapped, at)
-	})
+	return p.insert(
+		ctx, func(node DelayPusher) (string, error) {
+			return node.At(ctx, wrapped, at)
+		},
+	)
 }
 
 func (p *ProducerCluster) Close() error {
@@ -89,28 +93,37 @@ func (p *ProducerCluster) Close() error {
 	return be.Err()
 }
 
-func (p *ProducerCluster) Delay(ctx context.Context, body []byte, delay time.Duration) (string, error) {
+func (p *ProducerCluster) Delay(ctx context.Context, body []byte, delay time.Duration) (
+	string, error) {
 	wrapped := p.wrap(body, time.Now().Add(delay))
-	return p.insert(ctx, func(node DelayPusher) (string, error) {
-		return node.Delay(ctx, wrapped, delay)
-	})
+	return p.insert(
+		ctx, func(node DelayPusher) (string, error) {
+			return node.Delay(ctx, wrapped, delay)
+		},
+	)
 }
 
 func (p *ProducerCluster) Revoke(ctx context.Context, ids string) error {
 	var be errorx.BatchError
 
-	fx.From(func(source chan<- interface{}) {
-		for _, node := range p.nodes {
-			source <- node
-		}
-	}).Map(func(item interface{}) interface{} {
-		node := item.(DelayPusher)
-		return node.Revoke(ctx, ids)
-	}).ForEach(func(item interface{}) {
-		if item != nil {
-			be.Add(item.(error))
-		}
-	})
+	fx.From(
+		func(source chan<- interface{}) {
+			for _, node := range p.nodes {
+				source <- node
+			}
+		},
+	).Map(
+		func(item interface{}) interface{} {
+			node := item.(DelayPusher)
+			return node.Revoke(ctx, ids)
+		},
+	).ForEach(
+		func(item interface{}) {
+			if item != nil {
+				be.Add(item.(error))
+			}
+		},
+	)
 
 	return be.Err()
 }
@@ -125,32 +138,41 @@ func (p *ProducerCluster) getWriteNodes() []DelayPusher {
 	}
 
 	nodes := p.cloneNodes()
-	r.Shuffle(len(nodes), func(i, j int) {
-		nodes[i], nodes[j] = nodes[j], nodes[i]
-	})
+	r.Shuffle(
+		len(nodes), func(i, j int) {
+			nodes[i], nodes[j] = nodes[j], nodes[i]
+		},
+	)
 	return nodes[:replicaNodes]
 }
 
-func (p *ProducerCluster) insert(ctx context.Context, fn func(node DelayPusher) (string, error)) (string, error) {
+func (p *ProducerCluster) insert(
+	ctx context.Context, fn func(node DelayPusher) (string, error)) (string, error) {
 	type idErr struct {
 		id  string
 		err error
 	}
 	var ret []idErr
-	fx.From(func(source chan<- interface{}) {
-		for _, node := range p.getWriteNodes() {
-			source <- node
-		}
-	}).Map(func(item interface{}) interface{} {
-		node := item.(DelayPusher)
-		id, err := fn(node)
-		return idErr{
-			id:  id,
-			err: err,
-		}
-	}).ForEach(func(item interface{}) {
-		ret = append(ret, item.(idErr))
-	})
+	fx.From(
+		func(source chan<- interface{}) {
+			for _, node := range p.getWriteNodes() {
+				source <- node
+			}
+		},
+	).Map(
+		func(item interface{}) interface{} {
+			node := item.(DelayPusher)
+			id, err := fn(node)
+			return idErr{
+				id:  id,
+				err: err,
+			}
+		},
+	).ForEach(
+		func(item interface{}) {
+			ret = append(ret, item.(idErr))
+		},
+	)
 
 	var ids []string
 	var be errorx.BatchError

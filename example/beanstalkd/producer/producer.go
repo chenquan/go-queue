@@ -3,9 +3,10 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/chenquan/go-queue/beanstalkd"
 	"strconv"
 	"time"
+
+	"github.com/chenquan/go-queue/beanstalkd"
 )
 
 func main() {
@@ -20,11 +21,14 @@ func main() {
 	)
 
 	for i := 1; i < 1005; i++ {
-		//_, err := producer.Delay(context.Background(), []byte(strconv.Itoa(i)), time.Second*5)
-		//if err != nil {
+		// _, err := producer.Delay(context.Background(), []byte(strconv.Itoa(i)), time.Second*5)
+		// if err != nil {
 		//	fmt.Println(err)
-		//}
-		_, err := producer.Push(context.Background(), nil, []byte(strconv.Itoa(i)), beanstalkd.WithDuration(time.Second*5))
+		// }
+		_, err := producer.Push(
+			context.Background(), nil, []byte(strconv.Itoa(i)),
+			beanstalkd.WithDuration(time.Second*5),
+		)
 		if err != nil {
 			fmt.Println(err)
 		}
