@@ -21,7 +21,7 @@ func main() {
 	c.MustSetUp()
 
 	q := pulsar.MustNewQueue(
-		c.Conf, queue.WithHandle(
+		c.Conf, queue.ConsumeHandle(
 			func(ctx context.Context, k, v []byte) error {
 				logx.WithContext(ctx).Info(fmt.Sprintf("=> %s\n", v))
 				return nil
