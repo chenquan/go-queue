@@ -2,25 +2,28 @@ package kafka
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/chenquan/go-queue/internal/xtrace"
 	"github.com/chenquan/go-queue/queue"
+	"github.com/zeromicro/go-zero/core/logx"
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/segmentio/kafka-go"
 	"github.com/zeromicro/go-zero/core/executors"
-	"github.com/zeromicro/go-zero/core/logx"
 )
 
 type (
 	PushOption func(options *chunkOptions)
 
 	Pusher struct {
-		tracer   trace.Tracer
-		producer *kafka.Writer
-		topic    string
-		executor *executors.ChunkExecutor
+		tracer       trace.Tracer
+		producer     *kafka.Writer
+		topic        string
+		executor     *executors.ChunkExecutor
+		once         sync.Once
+		initExecutor func()
 	}
 
 	chunkOptions struct {
@@ -48,18 +51,22 @@ func NewPusher(addrs []string, topic string, opts ...PushOption) *Pusher {
 		topic:    topic,
 	}
 
-	pusher.executor = executors.NewChunkExecutor(
-		func(tasks []interface{}) {
-			chunk := make([]kafka.Message, len(tasks))
-			for i := range tasks {
-				chunk[i] = tasks[i].(kafka.Message)
-			}
-			if err := pusher.producer.WriteMessages(context.Background(), chunk...); err != nil {
-				logx.Error(err)
-			}
-		}, newOptions(opts)...,
-	)
+	pusher.initExecutor = func() {
+		pusher.once.Do(func() {
+			pusher.executor = executors.NewChunkExecutor(
+				func(tasks []interface{}) {
+					chunk := make([]kafka.Message, len(tasks))
+					for i := range tasks {
+						chunk[i] = tasks[i].(kafka.Message)
+					}
+					if err := pusher.producer.WriteMessages(context.Background(), chunk...); err != nil {
+						logx.Error(err)
+					}
+				}, newOptions(opts)...,
+			)
+		})
 
+	}
 	return pusher
 }
 
@@ -88,6 +95,9 @@ func (p *Pusher) Push(ctx context.Context, k, v []byte, opts ...queue.CallOption
 	}
 
 	if c.isSync {
+
+		p.initExecutor()
+
 		return nil, p.producer.WriteMessages(ctx, msg)
 	} else {
 		return nil, p.executor.Add(msg, len(v))
