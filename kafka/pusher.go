@@ -34,6 +34,8 @@ type (
 	callOptions struct {
 		isSync bool
 	}
+
+	HeaderKey struct{}
 )
 
 func NewPusher(addrs []string, topic string, opts ...PushOption) *Pusher {
@@ -94,6 +96,11 @@ func (p *Pusher) Push(ctx context.Context, k, v []byte, opts ...queue.CallOption
 		c.isSync = true
 	}
 
+	headers, b := HeadersFromContext(ctx)
+	if b {
+		msg.Headers = headers
+	}
+
 	if c.isSync {
 
 		p.initExecutor()
@@ -125,6 +132,19 @@ func WithSync() queue.CallOptions {
 
 		options.isSync = true
 	}
+}
+
+func NewHeadersContext(ctx context.Context, headers ...kafka.Header) context.Context {
+	return context.WithValue(ctx, HeaderKey{}, headers)
+}
+
+func HeadersFromContext(ctx context.Context, headers ...kafka.Header) ([]kafka.Header, bool) {
+	value := ctx.Value(HeaderKey{})
+	if value == nil {
+		return nil, false
+	}
+
+	return value.([]kafka.Header), true
 }
 
 func newOptions(opts []PushOption) []executors.ChunkOption {
