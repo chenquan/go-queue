@@ -155,6 +155,10 @@ func (q *kafkaQueue) consume(m kafka.Message) {
 	ctx, span := q.tracer.Start(context.Background(), "consumer")
 	defer span.End()
 
+	if len(m.Headers) != 0 {
+		ctx = NewHeadersContext(ctx, m.Headers...)
+	}
+
 	if err := q.consumeOne(ctx, m.Key, m.Value); err != nil {
 		logx.WithContext(ctx).Errorf("Error on consuming: %s, error: %v", string(m.Value), err)
 	}
