@@ -92,21 +92,16 @@ func (p *Pusher) Push(ctx context.Context, k, v []byte, opts ...queue.CallOption
 		opt(c)
 	}
 
-	if p.executor == nil {
-		c.isSync = true
-	}
-
 	headers, b := HeadersFromContext(ctx)
 	if b {
 		msg.Headers = headers
 	}
 
 	if c.isSync {
-
-		p.initExecutor()
-
 		return nil, p.producer.WriteMessages(ctx, msg)
 	} else {
+		// asynchronous
+		p.initExecutor()
 		return nil, p.executor.Add(msg, len(v))
 	}
 }
