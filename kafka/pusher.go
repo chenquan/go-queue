@@ -8,6 +8,10 @@ import (
 	"github.com/chenquan/go-queue/internal/xtrace"
 	"github.com/chenquan/go-queue/queue"
 	"github.com/zeromicro/go-zero/core/logx"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/segmentio/kafka-go"
@@ -91,17 +95,43 @@ func (p *Pusher) Push(ctx context.Context, k, v []byte, opts ...queue.CallOption
 	for _, opt := range opts {
 		opt(c)
 	}
-
 	headers, b := HeadersFromContext(ctx)
 	if b {
 		msg.Headers = headers
 	}
 
+	attrs := []attribute.KeyValue{
+		semconv.MessagingSystemKey.String("kafka"),
+		semconv.MessagingDestinationKindTopic,
+		semconv.MessagingDestinationKey.String(p.topic),
+	}
+	ctx, span := xtrace.Tracer().Start(ctx,
+		"kafka-pusher",
+		trace.WithSpanKind(trace.SpanKindProducer),
+		trace.WithAttributes(attrs...),
+	)
+	spanContext := span.SpanContext()
+	if spanContext.IsValid() {
+		propagator := otel.GetTextMapPropagator()
+		propagator.Inject(ctx, &Headers{headers: &msg.Headers})
+
+	}
+	defer span.End()
+
 	if c.isSync {
-		return nil, p.producer.WriteMessages(ctx, msg)
+		err := p.producer.WriteMessages(ctx, msg)
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
+			return nil, err
+		}
+
+		span.SetStatus(codes.Ok, "")
+		return nil, nil
 	} else {
 		// asynchronous
 		p.initExecutor()
+		span.SetStatus(codes.Ok, "")
 		return nil, p.executor.Add(msg, len(v))
 	}
 }

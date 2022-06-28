@@ -4,10 +4,15 @@ import (
 	"context"
 	"io"
 	"log"
+	"strconv"
 	"time"
 
 	"github.com/chenquan/go-queue/internal/xtrace"
 	"github.com/chenquan/go-queue/queue"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/segmentio/kafka-go"
@@ -152,7 +157,26 @@ func (q *kafkaQueue) startConsumers() {
 }
 
 func (q *kafkaQueue) consume(m kafka.Message) {
-	ctx, span := q.tracer.Start(context.Background(), "consumer")
+	propagator := otel.GetTextMapPropagator()
+	//
+	ctx := propagator.Extract(context.Background(), &Headers{headers: &m.Headers})
+	trace.SpanFromContext(ctx).End()
+
+	attrs := []attribute.KeyValue{
+		semconv.MessagingSystemKey.String("kafka"),
+		semconv.MessagingDestinationKindTopic,
+		semconv.MessagingDestinationKey.String(m.Topic),
+		semconv.MessagingOperationReceive,
+		semconv.MessagingMessageIDKey.String(strconv.FormatInt(m.Offset, 10)),
+		semconv.MessagingKafkaPartitionKey.Int64(int64(m.Partition)),
+		semconv.MessagingKafkaConsumerGroupKey.String(q.c.Group),
+	}
+
+	ctx, span := q.tracer.Start(ctx,
+		"kafka-consumer",
+		trace.WithSpanKind(trace.SpanKindConsumer),
+		trace.WithAttributes(attrs...),
+	)
 	defer span.End()
 
 	if len(m.Headers) != 0 {
@@ -160,13 +184,21 @@ func (q *kafkaQueue) consume(m kafka.Message) {
 	}
 
 	if err := q.consumeOne(ctx, m.Key, m.Value); err != nil {
-		logx.WithContext(ctx).Errorf("Error on consuming: %s, error: %v", string(m.Value), err)
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		logx.WithContext(ctx).Errorf("error on consuming: %s, error: %v", string(m.Value), err)
+		return
 	}
 
 	err := q.consumer.CommitMessages(ctx, m)
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		logx.WithContext(ctx).Error(err)
+		return
 	}
+
+	span.SetStatus(codes.Ok, "")
 }
 
 func (q *kafkaQueue) startProducers() {
