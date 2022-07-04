@@ -19,7 +19,7 @@ import (
 )
 
 type (
-	PushOption func(options *chunkOptions)
+	PushOption func(options *pushOptions)
 
 	Pusher struct {
 		tracer       trace.Tracer
@@ -30,9 +30,12 @@ type (
 		initExecutor func()
 	}
 
-	chunkOptions struct {
+	pushOptions struct {
 		chunkSize     int
 		flushInterval time.Duration
+		// An optional function called when the writer succeeds or fails the
+		// delivery of messages to a kafka partition.
+		Completion func(messages []kafka.Message, err error)
 	}
 
 	callOptions struct {
@@ -44,17 +47,32 @@ type (
 
 func NewPusher(addrs []string, topic string, opts ...PushOption) *Pusher {
 	tracer := xtrace.Tracer()
+	var options pushOptions
+	for _, opt := range opts {
+		opt(&options)
+	}
+
 	producer := &kafka.Writer{
 		Addr:        kafka.TCP(addrs...),
 		Topic:       topic,
 		Balancer:    &kafka.LeastBytes{},
 		Compression: kafka.Snappy,
+		Completion:  options.Completion,
 	}
 
 	pusher := &Pusher{
 		tracer:   tracer,
 		producer: producer,
 		topic:    topic,
+	}
+
+	var chunkOpts []executors.ChunkOption
+	if options.chunkSize > 0 {
+		chunkOpts = append(chunkOpts, executors.WithChunkBytes(options.chunkSize))
+	}
+
+	if options.flushInterval > 0 {
+		chunkOpts = append(chunkOpts, executors.WithFlushInterval(options.flushInterval))
 	}
 
 	pusher.initExecutor = func() {
@@ -68,7 +86,7 @@ func NewPusher(addrs []string, topic string, opts ...PushOption) *Pusher {
 					if err := pusher.producer.WriteMessages(context.Background(), chunk...); err != nil {
 						logx.Error(err)
 					}
-				}, newOptions(opts)...,
+				}, chunkOpts...,
 			)
 		})
 
@@ -137,13 +155,13 @@ func (p *Pusher) Push(ctx context.Context, k, v []byte, opts ...queue.CallOption
 }
 
 func WithChunkSize(chunkSize int) PushOption {
-	return func(options *chunkOptions) {
+	return func(options *pushOptions) {
 		options.chunkSize = chunkSize
 	}
 }
 
 func WithFlushInterval(interval time.Duration) PushOption {
-	return func(options *chunkOptions) {
+	return func(options *pushOptions) {
 		options.flushInterval = interval
 	}
 }
@@ -172,20 +190,8 @@ func HeadersFromContext(ctx context.Context, headers ...kafka.Header) ([]kafka.H
 	return value.([]kafka.Header), true
 }
 
-func newOptions(opts []PushOption) []executors.ChunkOption {
-	var options chunkOptions
-	for _, opt := range opts {
-		opt(&options)
+func WithCompletion(completion func(messages []kafka.Message, err error)) PushOption {
+	return func(options *pushOptions) {
+		options.Completion = completion
 	}
-
-	var chunkOpts []executors.ChunkOption
-	if options.chunkSize > 0 {
-		chunkOpts = append(chunkOpts, executors.WithChunkBytes(options.chunkSize))
-	}
-
-	if options.flushInterval > 0 {
-		chunkOpts = append(chunkOpts, executors.WithFlushInterval(options.flushInterval))
-	}
-
-	return chunkOpts
 }
