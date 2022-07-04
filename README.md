@@ -2,6 +2,12 @@
 
 > Kafka, Beanstalkd, Pulsar Pub/Sub framework. Reference: https://github.com/zeromicro/go-queue
 
+## installation
+
+```shell
+go get -u github.com/chenquan/go-queue
+```
+
 ## beanstalkd
 
 High available beanstalkd.
@@ -18,7 +24,6 @@ Telemetry:
   Sampler: 1.0
   Natcher: jaeger
 ```
-
 
 ```go
 package main
