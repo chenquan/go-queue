@@ -94,6 +94,7 @@ func newKafkaQueue(c Conf, handler queue.Consumer, options queueOptions) *kafkaQ
 	} else {
 		offset = kafka.LastOffset
 	}
+
 	consumer := kafka.NewReader(
 		kafka.ReaderConfig{
 			Brokers:        c.Brokers,
@@ -165,7 +166,7 @@ func (q *kafkaQueue) startConsumers() {
 
 func (q *kafkaQueue) consume(m kafka.Message) {
 	propagator := otel.GetTextMapPropagator()
-	//
+
 	ctx := propagator.Extract(context.Background(), &Headers{headers: &m.Headers})
 	trace.SpanFromContext(ctx).End()
 
@@ -220,12 +221,15 @@ func (q *kafkaQueue) startProducers() {
 					if err == io.EOF || err == io.ErrClosedPipe {
 						return
 					}
+
 					if err != nil {
 						logx.Errorf("Error on reading message, %q", err.Error())
 						continue
 					}
+
 					hashValue := xxhash.Sum64(msg.Key)
 					index := hashValue % uint64(len(q.channels))
+
 					q.channels[index] <- msg
 				}
 			},
