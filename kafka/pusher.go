@@ -123,7 +123,7 @@ func (p *Pusher) Push(ctx context.Context, k, v []byte, opts ...queue.CallOption
 		semconv.MessagingDestinationKindTopic,
 		semconv.MessagingDestinationKey.String(p.topic),
 	}
-	ctx, span := xtrace.Tracer().Start(ctx,
+	ctx, span := p.tracer.Start(ctx,
 		"kafka-pusher",
 		trace.WithSpanKind(trace.SpanKindProducer),
 		trace.WithAttributes(attrs...),
