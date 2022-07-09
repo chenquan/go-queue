@@ -2,7 +2,6 @@ package kafka
 
 import (
 	"context"
-	"hash/fnv"
 	"io"
 	"log"
 	"strconv"
