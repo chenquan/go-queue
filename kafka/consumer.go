@@ -168,7 +168,6 @@ func (q *kafkaQueue) consume(m kafka.Message) {
 	propagator := otel.GetTextMapPropagator()
 
 	ctx := propagator.Extract(context.Background(), &Headers{headers: &m.Headers})
-	trace.SpanFromContext(ctx).End()
 
 	attrs := []attribute.KeyValue{
 		semconv.MessagingSystemKey.String("kafka"),
