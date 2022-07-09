@@ -9,7 +9,7 @@ require (
 	github.com/frankban/quicktest v1.14.0 // indirect
 	github.com/segmentio/kafka-go v0.4.32
 	github.com/zeromicro/go-zero v1.3.4
-	go.opentelemetry.io/otel v1.7.0
-	go.opentelemetry.io/otel/trace v1.7.0
+	go.opentelemetry.io/otel v1.8.0
+	go.opentelemetry.io/otel/trace v1.8.0
 	golang.org/x/crypto v0.0.0-20220128200615-198e4374d7ed // indirect
 )
