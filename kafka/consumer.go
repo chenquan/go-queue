@@ -2,11 +2,13 @@ package kafka
 
 import (
 	"context"
+	"hash/fnv"
 	"io"
 	"log"
 	"strconv"
 	"time"
 
+	"github.com/cespare/xxhash/v2"
 	"github.com/chenquan/go-queue/internal/xtrace"
 	"github.com/chenquan/go-queue/queue"
 	"go.opentelemetry.io/otel"
@@ -43,7 +45,7 @@ type (
 		c                Conf
 		consumer         *kafka.Reader
 		handler          queue.Consumer
-		channel          chan kafka.Message
+		channels         []chan kafka.Message
 		producerRoutines *threading.RoutineGroup
 		consumerRoutines *threading.RoutineGroup
 		metrics          *stat.Metrics
@@ -107,11 +109,16 @@ func newKafkaQueue(c Conf, handler queue.Consumer, options queueOptions) *kafkaQ
 		},
 	)
 
+	channels := make([]chan kafka.Message, c.Processors)
+	for i := 0; i < c.Processors; i++ {
+		channels[i] = make(chan kafka.Message, 8)
+	}
+
 	return &kafkaQueue{
 		c:                c,
 		consumer:         consumer,
 		handler:          handler,
-		channel:          make(chan kafka.Message),
+		channels:         channels,
 		producerRoutines: threading.NewRoutineGroup(),
 		consumerRoutines: threading.NewRoutineGroup(),
 		metrics:          options.metrics,
@@ -124,7 +131,9 @@ func (q *kafkaQueue) Start() {
 	q.startProducers()
 
 	q.producerRoutines.Wait()
-	close(q.channel)
+	for _, channel := range q.channels {
+		close(channel)
+	}
 	q.consumerRoutines.Wait()
 }
 
@@ -144,11 +153,10 @@ func (q *kafkaQueue) consumeOne(ctx context.Context, key, val []byte) error {
 }
 
 func (q *kafkaQueue) startConsumers() {
-
-	for i := 0; i < q.c.Processors; i++ {
+	for _, channel := range q.channels {
 		q.consumerRoutines.Run(
 			func() {
-				for msg := range q.channel {
+				for msg := range channel {
 					q.consume(msg)
 				}
 			},
@@ -217,7 +225,9 @@ func (q *kafkaQueue) startProducers() {
 						logx.Errorf("Error on reading message, %q", err.Error())
 						continue
 					}
-					q.channel <- msg
+					hashValue := xxhash.Sum64(msg.Key)
+					index := hashValue % uint64(len(q.channels))
+					q.channels[index] <- msg
 				}
 			},
 		)
