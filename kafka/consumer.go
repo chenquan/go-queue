@@ -154,6 +154,7 @@ func (q *kafkaQueue) consumeOne(ctx context.Context, key, val []byte) error {
 
 func (q *kafkaQueue) startConsumers() {
 	for _, channel := range q.channels {
+		channel := channel
 		q.consumerRoutines.Run(
 			func() {
 				for msg := range channel {
