@@ -35,7 +35,8 @@ type (
 		flushInterval time.Duration
 		// An optional function called when the writer succeeds or fails the
 		// delivery of messages to a kafka partition.
-		Completion func(messages []kafka.Message, err error)
+		completion func(messages []kafka.Message, err error)
+		balancer   Balancer
 	}
 
 	callOptions struct {
@@ -57,7 +58,7 @@ func NewPusher(addrs []string, topic string, opts ...PushOption) *Pusher {
 		Topic:       topic,
 		Balancer:    &kafka.LeastBytes{},
 		Compression: kafka.Snappy,
-		Completion:  options.Completion,
+		Completion:  options.completion,
 	}
 
 	pusher := &Pusher{
@@ -73,6 +74,10 @@ func NewPusher(addrs []string, topic string, opts ...PushOption) *Pusher {
 
 	if options.flushInterval > 0 {
 		chunkOpts = append(chunkOpts, executors.WithFlushInterval(options.flushInterval))
+	}
+
+	if options.balancer != nil {
+		producer.Balancer = options.balancer
 	}
 
 	pusher.initExecutor = func() {
@@ -192,6 +197,12 @@ func HeadersFromContext(ctx context.Context, headers ...kafka.Header) ([]kafka.H
 
 func WithCompletion(completion func(messages []kafka.Message, err error)) PushOption {
 	return func(options *pushOptions) {
-		options.Completion = completion
+		options.completion = completion
+	}
+}
+
+func WithBalancer(balancer Balancer) PushOption {
+	return func(options *pushOptions) {
+		options.balancer = balancer
 	}
 }
