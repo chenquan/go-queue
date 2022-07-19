@@ -37,8 +37,9 @@ type (
 		flushInterval time.Duration
 		// An optional function called when the writer succeeds or fails the
 		// delivery of messages to a kafka partition.
-		completion func(messages []kafka.Message, err error)
-		balancer   Balancer
+		completion               func(messages []kafka.Message, err error)
+		balancer                 Balancer
+		disableAutoTopicCreation bool
 	}
 
 	callOptions struct {
@@ -56,11 +57,12 @@ func NewPusher(addrs []string, topic string, opts ...PushOption) *Pusher {
 	}
 
 	producer := &kafka.Writer{
-		Addr:        kafka.TCP(addrs...),
-		Topic:       topic,
-		Balancer:    &kafka.LeastBytes{},
-		Compression: kafka.Snappy,
-		Completion:  options.completion,
+		Addr:                   kafka.TCP(addrs...),
+		Topic:                  topic,
+		Balancer:               &kafka.LeastBytes{},
+		Compression:            kafka.Snappy,
+		Completion:             options.completion,
+		AllowAutoTopicCreation: !options.disableAutoTopicCreation,
 	}
 
 	pusher := &Pusher{
@@ -224,5 +226,11 @@ func WithCompletion(completion func(messages []kafka.Message, err error)) PushOp
 func WithBalancer(balancer Balancer) PushOption {
 	return func(options *pushOptions) {
 		options.balancer = balancer
+	}
+}
+
+func WithDisableAutoTopicCreation() PushOption {
+	return func(options *pushOptions) {
+		options.disableAutoTopicCreation = true
 	}
 }
