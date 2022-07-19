@@ -8,6 +8,7 @@ import (
 	"github.com/chenquan/go-queue/internal/xtrace"
 	"github.com/chenquan/go-queue/queue"
 	"github.com/zeromicro/go-zero/core/logx"
+	"github.com/zeromicro/go-zero/core/syncx"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
@@ -28,6 +29,7 @@ type (
 		executor     *executors.ChunkExecutor
 		once         sync.Once
 		initExecutor func()
+		stopOnce     func()
 	}
 
 	pushOptions struct {
@@ -96,15 +98,33 @@ func NewPusher(addrs []string, topic string, opts ...PushOption) *Pusher {
 		})
 
 	}
+
+	pusher.stopOnce = syncx.Once(pusher.doStop)
+
 	return pusher
 }
 
 func (p *Pusher) Close() error {
-	return p.producer.Close()
+	p.stopOnce()
+	return nil
 }
 
 func (p *Pusher) Name() string {
 	return p.topic
+}
+
+func (p *Pusher) Start() {
+}
+
+func (p *Pusher) doStop() {
+	err := p.producer.Close()
+	if err != nil {
+		logx.Error(err)
+	}
+}
+
+func (p *Pusher) Stop() {
+	p.stopOnce()
 }
 
 func (p *Pusher) Push(ctx context.Context, k, v []byte, opts ...queue.CallOptions) (
