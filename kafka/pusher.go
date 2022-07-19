@@ -186,7 +186,7 @@ func NewHeadersContext(ctx context.Context, headers ...kafka.Header) context.Con
 	return context.WithValue(ctx, HeaderKey{}, headers)
 }
 
-func HeadersFromContext(ctx context.Context, headers ...kafka.Header) ([]kafka.Header, bool) {
+func HeadersFromContext(ctx context.Context) ([]kafka.Header, bool) {
 	value := ctx.Value(HeaderKey{})
 	if value == nil {
 		return nil, false
