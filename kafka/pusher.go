@@ -43,7 +43,7 @@ type (
 		isSync bool
 	}
 
-	HeaderKey struct{}
+	headerKey struct{}
 )
 
 func NewPusher(addrs []string, topic string, opts ...PushOption) *Pusher {
@@ -183,11 +183,11 @@ func WithSync() queue.CallOptions {
 }
 
 func NewHeadersContext(ctx context.Context, headers ...kafka.Header) context.Context {
-	return context.WithValue(ctx, HeaderKey{}, headers)
+	return context.WithValue(ctx, headerKey{}, headers)
 }
 
 func HeadersFromContext(ctx context.Context) ([]kafka.Header, bool) {
-	value := ctx.Value(HeaderKey{})
+	value := ctx.Value(headerKey{})
 	if value == nil {
 		return nil, false
 	}
