@@ -2,8 +2,6 @@ package kafka
 
 import (
 	"context"
-	"sync"
-	"time"
 
 	"github.com/chenquan/go-queue/internal/xtrace"
 	"github.com/chenquan/go-queue/queue"
@@ -16,25 +14,20 @@ import (
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/segmentio/kafka-go"
-	"github.com/zeromicro/go-zero/core/executors"
 )
 
 type (
 	PushOption func(options *pushOptions)
 
 	Pusher struct {
-		tracer       trace.Tracer
-		producer     *kafka.Writer
-		topic        string
-		executor     *executors.ChunkExecutor
-		once         sync.Once
-		initExecutor func()
-		stopOnce     func()
+		tracer   trace.Tracer
+		producer *kafka.Writer
+		topic    string
+		stopOnce func()
 	}
 
 	pushOptions struct {
-		chunkSize     int
-		flushInterval time.Duration
+
 		// An optional function called when the writer succeeds or fails the
 		// delivery of messages to a kafka partition.
 		completion               func(messages []kafka.Message, err error)
@@ -56,10 +49,7 @@ type (
 	}
 
 	callOptions struct {
-		isSync bool
 	}
-
-	headerKey struct{}
 )
 
 func NewPusher(addrs []string, topic string, opts ...PushOption) *Pusher {
@@ -85,34 +75,8 @@ func NewPusher(addrs []string, topic string, opts ...PushOption) *Pusher {
 		topic:    topic,
 	}
 
-	var chunkOpts []executors.ChunkOption
-	if options.chunkSize > 0 {
-		chunkOpts = append(chunkOpts, executors.WithChunkBytes(options.chunkSize))
-	}
-
-	if options.flushInterval > 0 {
-		chunkOpts = append(chunkOpts, executors.WithFlushInterval(options.flushInterval))
-	}
-
 	if options.balancer != nil {
 		producer.Balancer = options.balancer
-	}
-
-	pusher.initExecutor = func() {
-		pusher.once.Do(func() {
-			pusher.executor = executors.NewChunkExecutor(
-				func(tasks []interface{}) {
-					chunk := make([]kafka.Message, len(tasks))
-					for i := range tasks {
-						chunk[i] = tasks[i].(kafka.Message)
-					}
-					if err := pusher.producer.WriteMessages(context.Background(), chunk...); err != nil {
-						logx.Error(err)
-					}
-				}, chunkOpts...,
-			)
-		})
-
 	}
 
 	pusher.stopOnce = syncx.Once(pusher.doStop)
@@ -154,6 +118,7 @@ func (p *Pusher) Push(ctx context.Context, k, v []byte, opts ...queue.CallOption
 	for _, opt := range opts {
 		opt(c)
 	}
+
 	headers, b := HeadersFromContext(ctx)
 	if b {
 		msg.Headers = headers
@@ -177,58 +142,16 @@ func (p *Pusher) Push(ctx context.Context, k, v []byte, opts ...queue.CallOption
 	}
 	defer span.End()
 
-	if c.isSync {
-		err := p.producer.WriteMessages(ctx, msg)
-		if err != nil {
-			span.RecordError(err)
-			span.SetStatus(codes.Error, err.Error())
-			return nil, err
-		}
-
-		span.SetStatus(codes.Ok, "")
-		return nil, nil
-	} else {
-		// asynchronous
-		p.initExecutor()
-		span.SetStatus(codes.Ok, "")
-		return nil, p.executor.Add(msg, len(v))
-	}
-}
-
-func WithChunkSize(chunkSize int) PushOption {
-	return func(options *pushOptions) {
-		options.chunkSize = chunkSize
-	}
-}
-
-func WithFlushInterval(interval time.Duration) PushOption {
-	return func(options *pushOptions) {
-		options.flushInterval = interval
-	}
-}
-
-func WithSync() queue.CallOptions {
-	return func(i interface{}) {
-		options, ok := i.(*callOptions)
-		if !ok {
-			panic(queue.ErrNotSupport)
-		}
-
-		options.isSync = true
-	}
-}
-
-func NewHeadersContext(ctx context.Context, headers ...kafka.Header) context.Context {
-	return context.WithValue(ctx, headerKey{}, headers)
-}
-
-func HeadersFromContext(ctx context.Context) ([]kafka.Header, bool) {
-	value := ctx.Value(headerKey{})
-	if value == nil {
-		return nil, false
+	err := p.producer.WriteMessages(ctx, msg)
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		return nil, err
 	}
 
-	return value.([]kafka.Header), true
+	span.SetStatus(codes.Ok, "")
+
+	return nil, nil
 }
 
 func WithCompletion(completion func(messages []kafka.Message, err error)) PushOption {
