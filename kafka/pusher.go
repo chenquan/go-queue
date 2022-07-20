@@ -51,6 +51,8 @@ type (
 		//
 		// The default is to use a kafka default value of 1048576.
 		batchBytes int64
+
+		requiredAcks RequiredAcks
 	}
 
 	callOptions struct {
@@ -74,6 +76,7 @@ func NewPusher(addrs []string, topic string, opts ...PushOption) *Pusher {
 		Compression:            kafka.Snappy,
 		Completion:             options.completion,
 		AllowAutoTopicCreation: !options.disableAutoTopicCreation,
+		RequiredAcks:           options.requiredAcks,
 	}
 
 	pusher := &Pusher{
@@ -255,5 +258,11 @@ func WithBatchSize(batchSize int) PushOption {
 func WithBatchBytes(batchBytes int64) PushOption {
 	return func(options *pushOptions) {
 		options.batchBytes = batchBytes
+	}
+}
+
+func WithRequiredAcks(requiredAcks RequiredAcks) PushOption {
+	return func(options *pushOptions) {
+		options.requiredAcks = requiredAcks
 	}
 }
