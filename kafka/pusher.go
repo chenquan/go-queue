@@ -39,6 +39,18 @@ type (
 		// delivery of messages to a kafka partition.
 		completion func(messages []kafka.Message, err error)
 		balancer   Balancer
+
+		// Limit on how many messages will be buffered before being sent to a
+		// partition.
+		//
+		// The default is to use a target batch size of 100 messages.
+		batchSize int
+
+		// Limit the maximum size of a request in bytes before being sent to
+		// a partition.
+		//
+		// The default is to use a kafka default value of 1048576.
+		batchBytes int64
 	}
 
 	callOptions struct {
@@ -61,6 +73,8 @@ func NewPusher(addrs []string, topic string, opts ...PushOption) *Pusher {
 		Balancer:    &kafka.LeastBytes{},
 		Compression: kafka.Snappy,
 		Completion:  options.completion,
+		BatchSize:   options.batchSize,
+		BatchBytes:  options.batchBytes,
 	}
 
 	pusher := &Pusher{
@@ -224,5 +238,17 @@ func WithCompletion(completion func(messages []kafka.Message, err error)) PushOp
 func WithBalancer(balancer Balancer) PushOption {
 	return func(options *pushOptions) {
 		options.balancer = balancer
+	}
+}
+
+func WithBatchSize(batchSize int) PushOption {
+	return func(options *pushOptions) {
+		options.batchSize = batchSize
+	}
+}
+
+func WithBatchBytes(batchBytes int64) PushOption {
+	return func(options *pushOptions) {
+		options.batchBytes = batchBytes
 	}
 }
