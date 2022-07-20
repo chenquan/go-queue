@@ -30,6 +30,7 @@ func (h *Headers) Set(key string, value string) {
 	for _, header := range *h.headers {
 		if header.Key == key {
 			header.Value = []byte(value)
+			return
 		}
 	}
 	*h.headers = append(*h.headers, kafka.Header{Key: key, Value: []byte(value)})
