@@ -40,6 +40,17 @@ type (
 		completion               func(messages []kafka.Message, err error)
 		balancer                 Balancer
 		disableAutoTopicCreation bool
+		// Limit on how many messages will be buffered before being sent to a
+		// partition.
+		//
+		// The default is to use a target batch size of 100 messages.
+		batchSize int
+
+		// Limit the maximum size of a request in bytes before being sent to
+		// a partition.
+		//
+		// The default is to use a kafka default value of 1048576.
+		batchBytes int64
 	}
 
 	callOptions struct {
@@ -232,5 +243,17 @@ func WithBalancer(balancer Balancer) PushOption {
 func WithDisableAutoTopicCreation() PushOption {
 	return func(options *pushOptions) {
 		options.disableAutoTopicCreation = true
+	}
+}
+
+func WithBatchSize(batchSize int) PushOption {
+	return func(options *pushOptions) {
+		options.batchSize = batchSize
+	}
+}
+
+func WithBatchBytes(batchBytes int64) PushOption {
+	return func(options *pushOptions) {
+		options.batchBytes = batchBytes
 	}
 }
