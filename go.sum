@@ -103,6 +103,8 @@ github.com/chenquan/orderhash v0.0.0-20220728094721-43fd53145074 h1:qBvTfFOOszQb
 github.com/chenquan/orderhash v0.0.0-20220728094721-43fd53145074/go.mod h1:oA2P/vm4wH2MySlR4xMolH0uNddjfv2cs2SMbFOibII=
 github.com/chenquan/orderhash v0.0.0-20220728123351-a4041b4dee03 h1:l1asjlZagbT9bjWH1M1dNmgBgWvHQOIqnkqv2l8iyxs=
 github.com/chenquan/orderhash v0.0.0-20220728123351-a4041b4dee03/go.mod h1:oA2P/vm4wH2MySlR4xMolH0uNddjfv2cs2SMbFOibII=
+github.com/chenquan/orderhash v0.0.0-20220728132644-5043de27e949 h1:RYLFTF+ylcqF1dErQzm/cIIBo6NPlsATB8XxGaTXEQ0=
+github.com/chenquan/orderhash v0.0.0-20220728132644-5043de27e949/go.mod h1:oA2P/vm4wH2MySlR4xMolH0uNddjfv2cs2SMbFOibII=
 github.com/chzyer/logex v1.1.10/go.mod h1:+Ywpsq7O8HXn0nuIou7OrIPyXbp3wmkHB+jjWRnGsAI=
 github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e/go.mod h1:nSuG5e5PlCu98SY8svDHJxuZscDgtXS6KTTbou5AhLI=
 github.com/chzyer/test v0.0.0-20180213035817-a1ea475d72b1/go.mod h1:Q3SI9o4m/ZMnBNeIyt5eFwwo7qiLfzFZmjNmxjkiQlU=
