@@ -10,6 +10,7 @@ import (
 	"github.com/cespare/xxhash/v2"
 	"github.com/chenquan/go-queue/internal/xtrace"
 	"github.com/chenquan/go-queue/queue"
+	"github.com/chenquan/orderhash"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
@@ -49,6 +50,7 @@ type (
 		consumerRoutines *threading.RoutineGroup
 		metrics          *stat.Metrics
 		tracer           trace.Tracer
+		hashFunc         func(b []byte) uint64
 	}
 
 	Queues struct {
@@ -123,6 +125,7 @@ func newKafkaQueue(c Conf, handler queue.Consumer, options queueOptions) *kafkaQ
 		consumerRoutines: threading.NewRoutineGroup(),
 		metrics:          options.metrics,
 		tracer:           xtrace.Tracer(),
+		hashFunc:         orderhash.Hash64(xxhash.Sum64),
 	}
 }
 
@@ -227,7 +230,7 @@ func (q *kafkaQueue) startProducers() {
 						continue
 					}
 
-					hashValue := xxhash.Sum64(msg.Key)
+					hashValue := q.hashFunc(msg.Key)
 					index := hashValue % uint64(len(q.channels))
 
 					q.channels[index] <- msg
