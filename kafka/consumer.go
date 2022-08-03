@@ -147,12 +147,18 @@ func (q *kafkaQueue) Stop() {
 func (q *kafkaQueue) consumeOne(ctx context.Context, key, val []byte) error {
 	startTime := timex.Now()
 	err := q.handler.Consume(ctx, key, val)
+	if err != nil {
+		q.metrics.AddDrop()
+		return err
+	}
+
 	q.metrics.Add(
 		stat.Task{
 			Duration: timex.Since(startTime),
 		},
 	)
-	return err
+
+	return nil
 }
 
 func (q *kafkaQueue) startConsumers() {
@@ -170,7 +176,6 @@ func (q *kafkaQueue) startConsumers() {
 
 func (q *kafkaQueue) consume(m kafka.Message) {
 	propagator := otel.GetTextMapPropagator()
-
 	ctx := propagator.Extract(context.Background(), &Headers{headers: &m.Headers})
 
 	attrs := []attribute.KeyValue{
