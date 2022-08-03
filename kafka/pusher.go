@@ -6,7 +6,9 @@ import (
 	"github.com/chenquan/go-queue/internal/xtrace"
 	"github.com/chenquan/go-queue/queue"
 	"github.com/zeromicro/go-zero/core/logx"
+	"github.com/zeromicro/go-zero/core/stat"
 	"github.com/zeromicro/go-zero/core/syncx"
+	"github.com/zeromicro/go-zero/core/timex"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
@@ -22,6 +24,7 @@ type (
 	Pusher struct {
 		tracer   trace.Tracer
 		producer *kafka.Writer
+		metrics  *stat.Metrics
 		topic    string
 		stopOnce func()
 	}
@@ -73,6 +76,7 @@ func NewPusher(addrs []string, topic string, opts ...PushOption) *Pusher {
 		tracer:   tracer,
 		producer: producer,
 		topic:    topic,
+		metrics:  stat.NewMetrics("kafka-pusher"),
 	}
 
 	if options.balancer != nil {
@@ -142,13 +146,21 @@ func (p *Pusher) Push(ctx context.Context, k, v []byte, opts ...queue.CallOption
 	}
 	defer span.End()
 
+	startTime := timex.Now()
 	err := p.producer.WriteMessages(ctx, msg)
 	if err != nil {
+		p.metrics.AddDrop()
+
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())
 		return nil, err
 	}
 
+	p.metrics.Add(
+		stat.Task{
+			Duration: timex.Since(startTime),
+		},
+	)
 	span.SetStatus(codes.Ok, "")
 
 	return nil, nil
