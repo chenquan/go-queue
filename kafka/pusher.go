@@ -2,9 +2,11 @@ package kafka
 
 import (
 	"context"
+	"time"
 
 	"github.com/chenquan/go-queue/internal/xtrace"
 	"github.com/chenquan/go-queue/queue"
+	"github.com/zeromicro/go-zero/core/executors"
 	"github.com/zeromicro/go-zero/core/logx"
 	"github.com/zeromicro/go-zero/core/stat"
 	"github.com/zeromicro/go-zero/core/syncx"
@@ -25,6 +27,7 @@ type (
 		tracer   trace.Tracer
 		producer *kafka.Writer
 		metrics  *stat.Metrics
+		executor *executors.ChunkExecutor
 		topic    string
 		stopOnce func()
 	}
@@ -49,9 +52,14 @@ type (
 		batchBytes int64
 
 		requiredAcks RequiredAcks
+
+		// async
+		chunkSize     int
+		flushInterval time.Duration
 	}
 
 	callOptions struct {
+		sync bool
 	}
 )
 
@@ -71,6 +79,9 @@ func NewPusher(addrs []string, topic string, opts ...PushOption) *Pusher {
 		AllowAutoTopicCreation: !options.disableAutoTopicCreation,
 		RequiredAcks:           options.requiredAcks,
 	}
+	if options.balancer != nil {
+		producer.Balancer = options.balancer
+	}
 
 	pusher := &Pusher{
 		tracer:   tracer,
@@ -79,9 +90,23 @@ func NewPusher(addrs []string, topic string, opts ...PushOption) *Pusher {
 		metrics:  stat.NewMetrics("kafka-pusher"),
 	}
 
-	if options.balancer != nil {
-		producer.Balancer = options.balancer
+	var chunkOpts []executors.ChunkOption
+	if options.chunkSize > 0 {
+		chunkOpts = append(chunkOpts, executors.WithChunkBytes(options.chunkSize))
 	}
+	if options.flushInterval > 0 {
+		chunkOpts = append(chunkOpts, executors.WithFlushInterval(options.flushInterval))
+	}
+	pusher.executor = executors.NewChunkExecutor(
+		func(tasks []interface{}) {
+			chunk := make([]kafka.Message, len(tasks))
+			for i := range tasks {
+				chunk[i] = tasks[i].(kafka.Message)
+			}
+			if err := pusher.producer.WriteMessages(context.Background(), chunk...); err != nil {
+				logx.Error(err)
+			}
+		}, chunkOpts...)
 
 	pusher.stopOnce = syncx.Once(pusher.doStop)
 
@@ -101,6 +126,8 @@ func (p *Pusher) Start() {
 }
 
 func (p *Pusher) doStop() {
+	p.executor.Flush()
+	p.executor.Wait()
 	err := p.producer.Close()
 	if err != nil {
 		logx.Error(err)
@@ -147,13 +174,18 @@ func (p *Pusher) Push(ctx context.Context, k, v []byte, opts ...queue.CallOption
 	defer span.End()
 
 	startTime := timex.Now()
-	err := p.producer.WriteMessages(ctx, msg)
-	if err != nil {
-		p.metrics.AddDrop()
 
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
-		return nil, err
+	if c.sync {
+		err := p.producer.WriteMessages(ctx, msg)
+		if err != nil {
+			p.metrics.AddDrop()
+
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
+			return nil, err
+		}
+	} else {
+		_ = p.executor.Add(msg, len(v))
 	}
 
 	p.metrics.Add(
@@ -199,5 +231,15 @@ func WithBatchBytes(batchBytes int64) PushOption {
 func WithRequiredAcks(requiredAcks RequiredAcks) PushOption {
 	return func(options *pushOptions) {
 		options.requiredAcks = requiredAcks
+	}
+}
+
+func WithSyncCall() queue.CallOptions {
+	return func(i interface{}) {
+		options, ok := i.(*callOptions)
+		if !ok {
+			panic(queue.ErrNotSupport)
+		}
+		options.sync = true
 	}
 }
