@@ -176,8 +176,8 @@ func (q *kafkaQueue) startConsumers() {
 
 func (q *kafkaQueue) consume(m kafka.Message) {
 	propagator := otel.GetTextMapPropagator()
-	ctx := propagator.Extract(context.Background(), &Headers{headers: &m.Headers})
-
+	ctxRemote := propagator.Extract(context.Background(), &Headers{headers: &m.Headers})
+	link := trace.LinkFromContext(ctxRemote)
 	attrs := []attribute.KeyValue{
 		semconv.MessagingSystemKey.String("kafka"),
 		semconv.MessagingDestinationKindTopic,
@@ -188,21 +188,29 @@ func (q *kafkaQueue) consume(m kafka.Message) {
 		semconv.MessagingKafkaConsumerGroupKey.String(q.c.Group),
 	}
 
-	ctx, span := q.tracer.Start(ctx,
+	ctx, span := q.tracer.Start(context.Background(),
 		"kafka-consumer",
 		trace.WithSpanKind(trace.SpanKindConsumer),
 		trace.WithAttributes(attrs...),
+		trace.WithLinks(link),
 	)
 	defer span.End()
 
 	if len(m.Headers) != 0 {
 		ctx = NewHeadersContext(ctx, m.Headers...)
 	}
+	spanContextRemote := link.SpanContext
+	if spanContextRemote.IsValid() {
+		if spanContextRemote.HasTraceID() {
+			ctx = logx.WithFields(ctx, logx.Field("link", spanContextRemote.TraceID().String()))
+		}
+	}
+	logger := logx.WithContext(ctx)
 
 	if err := q.consumeOne(ctx, m.Key, m.Value); err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())
-		logx.WithContext(ctx).Errorf("error on consuming: %s, error: %v", string(m.Value), err)
+		logger.Errorf("error on consuming: %s, error: %v", string(m.Value), err)
 		return
 	}
 
@@ -210,7 +218,7 @@ func (q *kafkaQueue) consume(m kafka.Message) {
 	if err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())
-		logx.WithContext(ctx).Error(err)
+		logger.Error(err)
 		return
 	}
 

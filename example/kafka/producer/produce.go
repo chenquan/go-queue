@@ -9,9 +9,10 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/chenquan/go-queue/internal/xtrace"
 	"github.com/chenquan/go-queue/kafka"
-
-	"github.com/zeromicro/go-zero/core/cmdline"
+	"github.com/zeromicro/go-zero/core/conf"
+	"github.com/zeromicro/go-zero/core/service"
 )
 
 type message struct {
@@ -21,16 +22,23 @@ type message struct {
 }
 
 func main() {
+	var c struct {
+		service.ServiceConf
+	}
+	conf.MustLoad("config.yaml", &c)
+
+	c.MustSetUp()
+
 	pusher := kafka.NewPusher(
 		[]string{
-			"127.0.0.1:19092",
-			"127.0.0.1:19092",
-			"127.0.0.1:19092",
+			"127.0.0.1:9092",
+			"127.0.0.1:9092",
+			"127.0.0.1:9092",
 		}, "kafka",
 	)
 
 	ticker := time.NewTicker(time.Millisecond)
-	for round := 0; round < 3; round++ {
+	for round := 0; ; round++ {
 		<-ticker.C
 
 		count := rand.Intn(100)
@@ -43,14 +51,15 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
+		tracer := xtrace.Tracer()
+		ctx, span := tracer.Start(context.Background(), "push-test")
 
-		fmt.Println(string(body))
-		if _, err := pusher.Push(
-			context.Background(), []byte(strconv.FormatInt(time.Now().UnixNano(), 10)), body,
-		); err != nil {
+		//fmt.Println(string(body))
+		if _, err := pusher.Push(ctx, []byte(strconv.FormatInt(time.Now().UnixNano(), 10)), body); err != nil {
 			log.Fatal(err)
 		}
+		span.End()
+		ticker.Reset(time.Second / 20)
 	}
 
-	cmdline.EnterToContinue()
 }

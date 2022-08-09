@@ -1,0 +1,6 @@
+Name: kafka
+Telemetry:
+  Name: kq
+  Endpoint: http://localhost:14268/api/traces
+  Sampler: 1.0
+  Natcher: jaeger
