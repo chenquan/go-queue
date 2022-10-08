@@ -294,3 +294,15 @@ func WithSyncCall() queue.CallOptions {
 		options.sync = true
 	}
 }
+
+func WithChunkSize(chunkSize int) PushOption {
+	return func(options *pushOptions) {
+		options.chunkSize = chunkSize
+	}
+}
+
+func WithFlushInterval(flushInterval time.Duration) PushOption {
+	return func(options *pushOptions) {
+		options.flushInterval = flushInterval
+	}
+}
