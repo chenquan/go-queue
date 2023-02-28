@@ -16,4 +16,5 @@ require (
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.13.0 // indirect
 	go.opentelemetry.io/otel/exporters/zipkin v1.13.0 // indirect
 	go.opentelemetry.io/otel/trace v1.13.0
+	golang.org/x/net v0.5.0 // indirect
 )
