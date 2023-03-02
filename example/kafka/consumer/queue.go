@@ -2,9 +2,11 @@ package main
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/chenquan/go-queue/kafka"
 	"github.com/chenquan/go-queue/queue"
+	"github.com/zeromicro/go-zero/core/logx"
 	"github.com/zeromicro/go-zero/core/service"
 
 	"github.com/zeromicro/go-zero/core/conf"
@@ -22,9 +24,7 @@ func main() {
 	q := kafka.MustNewQueue(
 		c.Conf, queue.ConsumeHandle(
 			func(ctx context.Context, k, v []byte) error {
-				//headers, b := kafka.HeadersFromContext(ctx)
-				//fmt.Println("header", headers, b)
-				//logx.WithContext(ctx).Info(fmt.Sprintf("=> %s\n", v))
+				logx.WithContext(ctx).Info(fmt.Sprintf("=> %s\n", v))
 				return nil
 			},
 		),

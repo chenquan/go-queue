@@ -37,6 +37,7 @@ func main() {
 		}, "kafka",
 	)
 
+	defer pusher.Stop()
 	ticker := time.NewTicker(time.Millisecond)
 	for round := 0; ; round++ {
 		<-ticker.C
@@ -54,12 +55,10 @@ func main() {
 		tracer := xtrace.Tracer()
 		ctx, span := tracer.Start(context.Background(), "push-test")
 
-		//fmt.Println(string(body))
 		if _, err := pusher.Push(ctx, []byte(strconv.FormatInt(time.Now().UnixNano(), 10)), body); err != nil {
 			log.Fatal(err)
 		}
 		span.End()
 		ticker.Reset(time.Second / 20)
 	}
-
 }
