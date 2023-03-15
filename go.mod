@@ -9,7 +9,7 @@ require (
 	github.com/chenquan/orderhash v0.3.1
 	github.com/frankban/quicktest v1.14.0 // indirect
 	github.com/segmentio/kafka-go v0.4.39
-	github.com/zeromicro/go-zero v1.4.4
+	github.com/zeromicro/go-zero v1.4.5
 	go.opentelemetry.io/otel v1.14.0
 	go.opentelemetry.io/otel/exporters/jaeger v1.13.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.11.2 // indirect
