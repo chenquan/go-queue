@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"log"
+	"runtime/debug"
 	"strconv"
 	"time"
 
@@ -117,9 +118,17 @@ func newKafkaQueue(c Conf, handler queue.Consumer, options queueOptions) *kafkaQ
 	}
 
 	return &kafkaQueue{
-		c:                c,
-		consumer:         consumer,
-		handler:          handler,
+		c:        c,
+		consumer: consumer,
+		handler: queue.ConsumeHandle(func(ctx context.Context, key, value []byte) error {
+			defer func() {
+				if e := recover(); e != nil {
+					logx.WithContext(ctx).Errorf("panic: %v", debug.Stack())
+				}
+			}()
+
+			return handler.Consume(ctx, key, value)
+		}),
 		channels:         channels,
 		producerRoutines: threading.NewRoutineGroup(),
 		consumerRoutines: threading.NewRoutineGroup(),
@@ -178,6 +187,7 @@ func (q *kafkaQueue) consume(m kafka.Message) {
 	propagator := otel.GetTextMapPropagator()
 	ctxRemote := propagator.Extract(context.Background(), &Headers{headers: &m.Headers})
 	link := trace.LinkFromContext(ctxRemote)
+
 	attrs := []attribute.KeyValue{
 		semconv.MessagingSystemKey.String("kafka"),
 		semconv.MessagingDestinationKindTopic,
@@ -193,7 +203,9 @@ func (q *kafkaQueue) consume(m kafka.Message) {
 		trace.WithSpanKind(trace.SpanKindConsumer),
 		trace.WithAttributes(attrs...),
 		trace.WithLinks(link),
+		trace.WithTimestamp(time.Now()),
 	)
+
 	defer span.End()
 
 	if len(m.Headers) != 0 {
