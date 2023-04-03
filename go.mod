@@ -3,7 +3,7 @@ module github.com/chenquan/go-queue
 go 1.16
 
 require (
-	github.com/apache/pulsar-client-go v0.9.0
+	github.com/apache/pulsar-client-go v0.10.0
 	github.com/beanstalkd/go-beanstalk v0.2.0
 	github.com/cespare/xxhash/v2 v2.2.0
 	github.com/chenquan/orderhash v0.3.1
