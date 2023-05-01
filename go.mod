@@ -9,8 +9,8 @@ require (
 	github.com/chenquan/orderhash v0.3.1
 	github.com/segmentio/kafka-go v0.4.39
 	github.com/zeromicro/go-zero v1.5.2
-	go.opentelemetry.io/otel v1.14.0
-	go.opentelemetry.io/otel/trace v1.14.0
+	go.opentelemetry.io/otel v1.15.0
+	go.opentelemetry.io/otel/trace v1.15.0
 )
 
 require (
@@ -28,7 +28,7 @@ require (
 	github.com/fatih/color v1.15.0 // indirect
 	github.com/felixge/fgprof v0.9.3 // indirect
 	github.com/frankban/quicktest v1.14.0 // indirect
-	github.com/go-logr/logr v1.2.3 // indirect
+	github.com/go-logr/logr v1.2.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-redis/redis/v8 v8.11.5 // indirect
 	github.com/godbus/dbus v0.0.0-20190726142602-4481cbc300e2 // indirect
