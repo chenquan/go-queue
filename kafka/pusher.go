@@ -6,6 +6,7 @@ import (
 
 	"github.com/chenquan/go-queue/internal/xtrace"
 	"github.com/chenquan/go-queue/queue"
+	"github.com/segmentio/kafka-go/sasl/plain"
 	"github.com/zeromicro/go-zero/core/executors"
 	"github.com/zeromicro/go-zero/core/logx"
 	"github.com/zeromicro/go-zero/core/stat"
@@ -56,6 +57,10 @@ type (
 		// async
 		chunkSize     int
 		flushInterval time.Duration
+
+		// auth
+		username string
+		password string
 	}
 
 	callOptions struct {
@@ -84,6 +89,13 @@ func NewPusher(addrs []string, topic string, opts ...PushOption) *Pusher {
 		AllowAutoTopicCreation: !options.disableAutoTopicCreation,
 		RequiredAcks:           options.requiredAcks,
 	}
+	if len(options.username) > 0 && len(options.password) > 0 {
+		producer.Transport.(*kafka.Transport).SASL = plain.Mechanism{
+			Username: options.username,
+			Password: options.password,
+		}
+	}
+
 	if options.balancer != nil {
 		producer.Balancer = options.balancer
 	}
@@ -305,4 +317,12 @@ func WithFlushInterval(flushInterval time.Duration) PushOption {
 	return func(options *pushOptions) {
 		options.flushInterval = flushInterval
 	}
+}
+
+func WithAuth(username, password string) PushOption {
+	return func(options *pushOptions) {
+		options.username = username
+		options.password = password
+	}
+
 }
