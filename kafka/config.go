@@ -15,4 +15,6 @@ type Conf struct {
 	Processors int    `json:",default=8"`
 	MinBytes   int    `json:",default=10240"`    // 10K
 	MaxBytes   int    `json:",default=10485760"` // 10M
+	Username   string `json:",optional"`
+	Password   string `json:",optional"`
 }

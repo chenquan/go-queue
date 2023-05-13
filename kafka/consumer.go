@@ -12,6 +12,7 @@ import (
 	"github.com/chenquan/go-queue/internal/xtrace"
 	"github.com/chenquan/go-queue/queue"
 	"github.com/chenquan/orderhash"
+	"github.com/segmentio/kafka-go/sasl/plain"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
@@ -97,19 +98,27 @@ func newKafkaQueue(c Conf, handler queue.Consumer, options queueOptions) *kafkaQ
 	} else {
 		offset = kafka.LastOffset
 	}
-
+	readerConfig := kafka.ReaderConfig{
+		Brokers:        c.Brokers,
+		GroupID:        c.Group,
+		Topic:          c.Topic,
+		StartOffset:    offset,
+		MinBytes:       c.MinBytes, // 10KB
+		MaxBytes:       c.MaxBytes, // 10MB
+		MaxWait:        options.maxWait,
+		CommitInterval: options.commitInterval,
+		QueueCapacity:  options.queueCapacity,
+	}
+	if len(c.Username) > 0 && len(c.Password) > 0 {
+		readerConfig.Dialer = &kafka.Dialer{
+			SASLMechanism: plain.Mechanism{
+				Username: c.Username,
+				Password: c.Password,
+			},
+		}
+	}
 	consumer := kafka.NewReader(
-		kafka.ReaderConfig{
-			Brokers:        c.Brokers,
-			GroupID:        c.Group,
-			Topic:          c.Topic,
-			StartOffset:    offset,
-			MinBytes:       c.MinBytes, // 10KB
-			MaxBytes:       c.MaxBytes, // 10MB
-			MaxWait:        options.maxWait,
-			CommitInterval: options.commitInterval,
-			QueueCapacity:  options.queueCapacity,
-		},
+		readerConfig,
 	)
 
 	channels := make([]chan kafka.Message, c.Processors)
