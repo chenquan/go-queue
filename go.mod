@@ -5,7 +5,7 @@ go 1.18
 require (
 	github.com/apache/pulsar-client-go v0.12.1
 	github.com/beanstalkd/go-beanstalk v0.2.0
-	github.com/cespare/xxhash/v2 v2.2.0
+	github.com/cespare/xxhash/v2 v2.3.0
 	github.com/chenquan/orderhash v0.3.1
 	github.com/segmentio/kafka-go v0.4.47
 	github.com/zeromicro/go-zero v1.5.6
